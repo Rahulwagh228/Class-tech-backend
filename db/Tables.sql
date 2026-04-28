@@ -10,8 +10,6 @@ CREATE TABLE Tutions (
   updated_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
   CONSTRAINT tutions_slug_format CHECK (slug ~ '^[a-z0-9-]{3,60}$')
 );
-CREATE TRIGGER tutions_set_updated_at BEFORE UPDATE ON Tutions
-  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 
 -- 3.2 users  (admin / teacher / student / parent)
@@ -21,7 +19,7 @@ CREATE TABLE users (
 
   name                            VARCHAR(80)   NOT NULL,
   username                        VARCHAR(30)   NOT NULL,
-  email                           CITEXT        NOT NULL,
+  email                           TEXT        NOT NULL,
   password_hash                   VARCHAR(255)  NOT NULL,
   profile_photo                   VARCHAR(2048),
 
@@ -35,12 +33,7 @@ CREATE TABLE users (
   CONSTRAINT users_username_format CHECK (username ~ '^[a-zA-Z0-9_.-]{3,30}$'),
   CONSTRAINT users_email_format    CHECK (POSITION('@' IN email) > 1)
 );
-CREATE UNIQUE INDEX users_email_key            ON users (email);                      -- global
-CREATE UNIQUE INDEX users_tution_username_key  ON users (tution_id, username);        -- per tution
-CREATE INDEX        users_tution_role_idx      ON users (tution_id, role);
-CREATE TRIGGER users_set_updated_at BEFORE UPDATE ON users
-  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
+CREATE UNIQUE INDEX users_email_unique ON users (LOWER(email));
 
 -- 3.3 email_otps  (one-time codes for email verification)
 CREATE TABLE email_otps (

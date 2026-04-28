@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 import jwt, { type SignOptions } from 'jsonwebtoken';
 import crypto from 'node:crypto';
 import { Resend } from 'resend';
-import pool from '../config/connectPsql.js';
+import pool from '../config/connectpsql.js';
 import { env } from '../config/env.js';
 import type { JwtPayload, User, UserResponse, UserRole } from '../models/User.model.js';
 
