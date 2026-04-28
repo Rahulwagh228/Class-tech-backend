@@ -1,3 +1,4 @@
+import cors from 'cors';
 import express from 'express';
 import pino from 'pino';
 import type { NextFunction, Request, Response } from 'express';
@@ -8,6 +9,27 @@ import { authRouter } from './routes/auth.js';
 const logger = pino({ level: env.LOG_LEVEL });
 
 export const app = express();
+
+// Enable CORS
+const allowedOrigins = new Set([
+  env.APP_URL,
+  'http://localhost:3000',
+  'http://localhost:3001'
+]);
+
+app.use(
+  cors({
+    origin(origin, callback) {
+      // allow same-origin / curl / Postman (no Origin header)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.has(origin)) return callback(null, true);
+      return callback(new Error(`CORS: origin ${origin} not allowed`));
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+  })
+);
 
 app.use((request: Request, response: Response, next: NextFunction) => {
   const startedAt = Date.now();
