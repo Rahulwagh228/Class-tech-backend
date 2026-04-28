@@ -3,8 +3,8 @@ import pino from 'pino';
 import type { NextFunction, Request, Response } from 'express';
 import { env } from './config/env.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
+import { authRouter } from './routes/auth.js';
 import { healthRouter } from './routes/health.js';
-import { tasksRouter } from './routes/tasks.js';
 
 const logger = pino({ level: env.LOG_LEVEL });
 
@@ -35,7 +35,7 @@ app.get('/', (_request, response) => {
 });
 
 app.use('/health', healthRouter);
-app.use('/api/v1/tasks', tasksRouter);
+app.use('/api/v1/auth', authRouter);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
