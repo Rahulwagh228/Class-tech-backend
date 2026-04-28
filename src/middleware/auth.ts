@@ -1,39 +1,38 @@
 import type { NextFunction, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import { env } from '../config/env.js';
-import { AppError } from '../lib/errors.js';
-import type { AuthTokenPayload } from '../services/authService.js';
-import type { UserRole } from '../repositories/userRepository.js';
+import type { JwtPayload, UserRole } from '../models/User.model.js';
 
 declare module 'express-serve-static-core' {
   interface Request {
-    user?: AuthTokenPayload;
+    user?: JwtPayload;
   }
 }
 
-export function requireAuth(request: Request, _response: Response, next: NextFunction): void {
-  const header = request.headers.authorization;
+export function requireAuth(req: Request, res: Response, next: NextFunction): void {
+  const header = req.headers.authorization;
   if (!header?.startsWith('Bearer ')) {
-    return next(new AppError('Missing or invalid Authorization header', 401));
+    res.status(401).json({ msg: 'Missing or invalid Authorization header' });
+    return;
   }
-
   const token = header.slice('Bearer '.length).trim();
   try {
-    const decoded = jwt.verify(token, env.JWT_SECRET) as AuthTokenPayload;
-    request.user = decoded;
+    req.user = jwt.verify(token, env.JWT_SECRET) as JwtPayload;
     next();
   } catch {
-    next(new AppError('Invalid or expired token', 401));
+    res.status(401).json({ msg: 'Invalid or expired token' });
   }
 }
 
 export function requireRole(...roles: UserRole[]) {
-  return (request: Request, _response: Response, next: NextFunction): void => {
-    if (!request.user) {
-      return next(new AppError('Authentication required', 401));
+  return (req: Request, res: Response, next: NextFunction): void => {
+    if (!req.user) {
+      res.status(401).json({ msg: 'Authentication required' });
+      return;
     }
-    if (!roles.includes(request.user.role)) {
-      return next(new AppError('Insufficient permissions', 403));
+    if (!roles.includes(req.user.role)) {
+      res.status(403).json({ msg: 'Insufficient permissions' });
+      return;
     }
     next();
   };

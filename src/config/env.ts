@@ -14,7 +14,9 @@ const envSchema = z.object({
 
   RESEND_API_KEY: z.string().min(1),
   EMAIL_FROM: z.string().min(1),
-  APP_URL: z.string().url().default('http://localhost:3000')
+  APP_URL: z.string().url().default('http://localhost:3000'),
+
+  DATABASE_URL: z.string().url('DATABASE_URL must be a valid Postgres connection string')
 });
 
 export const env = envSchema.parse(process.env);
