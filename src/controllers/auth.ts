@@ -82,14 +82,20 @@ export const register = async (req: Request, res: Response): Promise<void> => {
 
 // =============================================================================
 // POST /api/v1/auth/login
-// body: { email, password }    (email is globally unique - no tution needed)
+// body: { email, password, role }
+//   role enforces which portal the user is signing in through (admin portal,
+//   student portal, etc.). Server rejects if role mismatches the stored role.
 // =============================================================================
 export const login = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { email, password } = req.body ?? {};
+    const { email, password, role } = req.body ?? {};
 
-    if (!email || !password) {
-      res.status(400).json({ msg: 'email and password are required' });
+    if (!email || !password || !role) {
+      res.status(400).json({ msg: 'email, password and role are required' });
+      return;
+    }
+    if (!ALLOWED_ROLES.includes(role)) {
+      res.status(400).json({ msg: `role must be one of: ${ALLOWED_ROLES.join(', ')}` });
       return;
     }
 
@@ -109,6 +115,11 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     const ok = await bcrypt.compare(password, user.password_hash);
     if (!ok) {
       res.status(401).json({ msg: 'Invalid credentials' });
+      return;
+    }
+
+    if (user.role !== role) {
+      res.status(403).json({ msg: `This account is not registered as ${role}` });
       return;
     }
 
