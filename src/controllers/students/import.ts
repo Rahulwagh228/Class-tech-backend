@@ -1,8 +1,8 @@
 import type { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import * as XLSX from 'xlsx';
-import supabase from '../config/connectSupabase.js';
-import { env } from '../config/env.js';
+import supabase from '../../config/connectSupabase.js';
+import { env } from '../../config/env.js';
 
 // =============================================================================
 // POST /api/v1/importStudent     (auth required)

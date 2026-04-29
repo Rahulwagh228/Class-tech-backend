@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { importStudents } from '../controllers/import.js';
+import { importStudents } from '../controllers/students/import.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { upload } from '../middleware/upload.js';
 
