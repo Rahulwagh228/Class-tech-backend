@@ -41,7 +41,9 @@ CREATE TABLE users (
   CONSTRAINT users_email_format    CHECK (POSITION('@' IN email) > 1)
 );
 CREATE UNIQUE INDEX users_email_unique ON users (LOWER(email));
+ALTER TABLE users
 
+ADD CONSTRAINT users_username_unique UNIQUE (username);
 -- 3.3 email_otps  (one-time codes for email verification)
 CREATE TABLE email_otps (
   id           UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
