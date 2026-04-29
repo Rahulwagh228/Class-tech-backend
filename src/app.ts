@@ -10,13 +10,25 @@ const logger = pino({ level: env.LOG_LEVEL });
 
 export const app = express();
 
-// Enable CORS
-const allowedOrigins = new Set([
-  env.APP_URL,
-
-  // 'https://class-tech-backend.vercel.app',
-'https://class-tech-sooty.vercel.app/'
+// =============================================================================
+// CORS
+// -----------------------------------------------------------------------------
+// The browser's Origin header is ALWAYS `<scheme>://<host>[:<port>]` -
+// no trailing slash, no path. Entries here must match exactly. Use a regex
+// for Vercel preview deployments, which get unique per-branch URLs.
+// =============================================================================
+const allowedOrigins = new Set<string>([
+  env.APP_URL,                           // whatever you set in .env (defaults to http://localhost:3000)
+  'http://localhost:3000',
+  'http://localhost:3001',
+  'http://localhost:5173',               // Vite default
+  'https://class-tech-sooty.vercel.app'  // production frontend
 ]);
+
+// Match every Vercel preview URL for the frontend project so PR/branch deploys work.
+const allowedOriginPatterns: RegExp[] = [
+  /^https:\/\/class-tech-sooty(-[a-z0-9-]+)?\.vercel\.app$/
+];
 
 app.use(
   cors({
@@ -24,6 +36,9 @@ app.use(
       // allow same-origin / curl / Postman (no Origin header)
       if (!origin) return callback(null, true);
       if (allowedOrigins.has(origin)) return callback(null, true);
+      if (allowedOriginPatterns.some((re) => re.test(origin))) return callback(null, true);
+
+      console.warn(`[cors] blocked origin: ${origin}`);
       return callback(new Error(`CORS: origin ${origin} not allowed`));
     },
     credentials: true,
