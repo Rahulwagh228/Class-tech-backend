@@ -10,6 +10,12 @@ import type { JwtPayload, User, UserResponse, UserRole } from '../models/User.mo
 const ALLOWED_ROLES: UserRole[] = ['admin', 'teacher', 'student', 'parent'];
 const resend = new Resend(env.RESEND_API_KEY);
 
+// Normalize emails so casing / whitespace can't cause "user not found" mismatches.
+// e.g. "  Admin@Example.COM " -> "admin@example.com"
+function normalizeEmail(value: unknown): string {
+  return typeof value === 'string' ? value.trim().toLowerCase() : '';
+}
+
 function signToken(user: Pick<User, 'id' | 'tution_id' | 'role'>): string {
   const payload: JwtPayload = {
     id: user.id,
@@ -27,7 +33,8 @@ function signToken(user: Pick<User, 'id' | 'tution_id' | 'role'>): string {
 // =============================================================================
 export const register = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { tution_id, name, username, email, password, role, profile_photo } = req.body ?? {};
+    const { tution_id, name, username, password, role, profile_photo } = req.body ?? {};
+    const email = normalizeEmail(req.body?.email);
     console.log("register api hitt with role:", role)
 
     if (!tution_id || !name || !username || !email || !password || !role) {
@@ -91,7 +98,8 @@ async function performLogin(
   expectedRole: UserRole | null
 ): Promise<void> {
   try {
-    const { email, password } = req.body ?? {};
+    const { password } = req.body ?? {};
+    const email = normalizeEmail(req.body?.email);
     const bodyRole: unknown = req.body?.role;
 
     if (!email || !password) {
@@ -114,7 +122,7 @@ async function performLogin(
 
     const result = await pool.query<User>(
       `SELECT id, tution_id, name, username, email, password_hash,
-              profile_photo, role, email_verified, created_at, updated_at
+              profile_photo, role, email_verified, created_at
        FROM users
        WHERE email = $1`,
       [email]
