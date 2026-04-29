@@ -103,3 +103,8 @@ app.use('/api/v1/auth', authRouter);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
+
+// Vercel's @vercel/node runtime requires `export default <handler>`.
+// An Express app IS a request handler, so we re-export it as default.
+// This lets ANY entry point (api/index.ts OR src/app.ts itself) work.
+export default app;
