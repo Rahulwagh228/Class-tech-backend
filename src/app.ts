@@ -13,8 +13,9 @@ export const app = express();
 // Enable CORS
 const allowedOrigins = new Set([
   env.APP_URL,
-  'http://localhost:3000',
-  'http://localhost:3001'
+
+  // 'https://class-tech-backend.vercel.app',
+'https://class-tech-sooty.vercel.app/'
 ]);
 
 app.use(
