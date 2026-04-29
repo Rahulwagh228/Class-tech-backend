@@ -45,7 +45,7 @@ CREATE UNIQUE INDEX users_email_unique ON users (LOWER(email));
 -- 3.3 email_otps  (one-time codes for email verification)
 CREATE TABLE email_otps (
   id           UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
-  email        CITEXT       NOT NULL,
+  email        TEXT       NOT NULL,
   otp          VARCHAR(6)   NOT NULL,
   is_verified  BOOLEAN      NOT NULL DEFAULT FALSE,
   expires_at   TIMESTAMPTZ  NOT NULL,
