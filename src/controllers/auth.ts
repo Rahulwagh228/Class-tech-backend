@@ -190,6 +190,7 @@ async function performLogin(
       )
       .eq('email', email)
       .maybeSingle<User>();
+      console.log(req.headers.authorization)
 
     if (fetchErr) {
       console.error('supabase fetch user failed:', fetchErr);
@@ -197,6 +198,7 @@ async function performLogin(
       return;
     }
     if (!user) {
+      console.log(user,"userrrrr")
       res.status(401).json({ msg: 'user not found' });
       return;
     }
