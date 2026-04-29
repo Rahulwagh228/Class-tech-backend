@@ -55,3 +55,60 @@ CREATE INDEX email_otps_email_idx       ON email_otps (email);
 CREATE INDEX email_otps_expires_at_idx  ON email_otps (expires_at);
 
 
+-- =============================================================================
+-- 3.4 students  (1:1 with users where role='student')
+--   user_id is BOTH primary key AND foreign key -> guarantees one student row
+--   per user. ON DELETE CASCADE -> deleting the user deletes the student row.
+-- ===
+-- students (1:1 with users where role='student')
+CREATE TABLE students (
+  user_id            UUID          PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  tution_id          UUID          NOT NULL    REFERENCES Tutions(id) ON DELETE CASCADE,
+
+  enrollment_number  VARCHAR(40)   NOT NULL,
+  date_of_birth      DATE,
+  gender             VARCHAR(20),
+  grade_level        VARCHAR(20),
+  section            VARCHAR(20),
+  blood_group        VARCHAR(5),
+
+  guardian_name      VARCHAR(80),
+  guardian_phone     VARCHAR(20),
+  emergency_contact  VARCHAR(20),
+
+  address            TEXT,
+  admission_date     DATE          DEFAULT CURRENT_DATE,
+  notes              TEXT,
+
+  created_at         TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  updated_at         TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+
+  CONSTRAINT students_enrollment_unique UNIQUE (tution_id, enrollment_number)
+);
+CREATE INDEX students_tution_idx        ON students (tution_id);
+
+
+-- teachers (1:1 with users where role='teacher')
+CREATE TABLE teachers (
+  user_id           UUID          PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  tution_id         UUID          NOT NULL    REFERENCES Tutions(id) ON DELETE CASCADE,
+
+  employee_id       VARCHAR(40)   NOT NULL,
+  date_of_birth     DATE,
+  gender            VARCHAR(20),
+
+  qualification     VARCHAR(200),
+  specialization    VARCHAR(200),
+  experience_years  INTEGER       CHECK (experience_years IS NULL OR experience_years >= 0),
+  joining_date      DATE          DEFAULT CURRENT_DATE,
+
+  bio               TEXT,
+  phone             VARCHAR(20),
+  address           TEXT,
+
+  created_at        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  updated_at        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+
+  CONSTRAINT teachers_employee_unique UNIQUE (tution_id, employee_id)
+);
+CREATE INDEX teachers_tution_idx ON teachers (tution_id);

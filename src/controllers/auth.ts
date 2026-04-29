@@ -8,7 +8,16 @@ import { Resend } from 'resend';
 // import pool from '../config/connectpsql.js';
 import supabase from '../config/connectSupabase.js';
 import { env } from '../config/env.js';
-import type { JwtPayload, User, UserResponse, UserRole } from '../models/User.model.js';
+import type {
+  JwtPayload,
+  Student,
+  StudentInput,
+  Teacher,
+  TeacherInput,
+  User,
+  UserResponse,
+  UserRole
+} from '../models/User.model.js';
 
 const ALLOWED_ROLES: UserRole[] = ['admin', 'teacher', 'student', 'parent'];
 const resend = new Resend(env.RESEND_API_KEY);
@@ -35,12 +44,21 @@ function signToken(user: Pick<User, 'id' | 'tution_id' | 'role'>): string {
 
 // =============================================================================
 // POST /api/v1/auth/register
-// body: { tution_id, name, username, email, password, role, profile_photo? }
+// body: {
+//   tution_id, name, username, email, password, role, profile_photo?,
+//   student?: { enrollment_number, date_of_birth?, gender?, grade_level?, ... },
+//   teacher?: { employee_id, qualification?, specialization?, ... }
+// }
+// If role='student', the `student` object is required.
+// If role='teacher', the `teacher` object is required.
+// admin/parent: no extra object needed.
 // =============================================================================
 export const register = async (req: Request, res: Response): Promise<void> => {
   try {
     const { tution_id, name, username, password, role, profile_photo } = req.body ?? {};
     const email = normalizeEmail(req.body?.email);
+    const studentInput: StudentInput | undefined = req.body?.student;
+    const teacherInput: TeacherInput | undefined = req.body?.teacher;
     console.log('register api hitt with role:', role);
 
     if (!tution_id || !name || !username || !email || !password || !role) {
@@ -55,6 +73,14 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     }
     if (typeof password !== 'string' || password.length < 8) {
       res.status(400).json({ msg: 'password must be at least 8 characters' });
+      return;
+    }
+    if (role === 'student' && !studentInput?.enrollment_number) {
+      res.status(400).json({ msg: 'student.enrollment_number is required for role=student' });
+      return;
+    }
+    if (role === 'teacher' && !teacherInput?.employee_id) {
+      res.status(400).json({ msg: 'teacher.employee_id is required for role=teacher' });
       return;
     }
 
@@ -132,8 +158,81 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    // -------------------------------------------------------------------------
+    // Insert role-specific profile row. If this fails we delete the user row
+    // we just created so we never end up with an orphaned auth account.
+    // -------------------------------------------------------------------------
+    let profile: Student | Teacher | null = null;
+
+    if (role === 'student' && studentInput) {
+      const { data, error } = await supabase
+        .from('students')
+        .insert({
+          user_id: user.id,
+          tution_id,
+          enrollment_number: studentInput.enrollment_number,
+          date_of_birth: studentInput.date_of_birth ?? null,
+          gender: studentInput.gender ?? null,
+          grade_level: studentInput.grade_level ?? null,
+          section: studentInput.section ?? null,
+          blood_group: studentInput.blood_group ?? null,
+          guardian_name: studentInput.guardian_name ?? null,
+          guardian_phone: studentInput.guardian_phone ?? null,
+          emergency_contact: studentInput.emergency_contact ?? null,
+          address: studentInput.address ?? null,
+          admission_date: studentInput.admission_date ?? null,
+          notes: studentInput.notes ?? null
+        })
+        .select('*')
+        .single<Student>();
+
+      if (error || !data) {
+        console.error('supabase insert student failed:', error);
+        await supabase.from('users').delete().eq('id', user.id);
+        res
+          .status(500)
+          .json({ msg: error?.message ?? 'Failed to create student profile' });
+        return;
+      }
+      profile = data;
+    } else if (role === 'teacher' && teacherInput) {
+      const { data, error } = await supabase
+        .from('teachers')
+        .insert({
+          user_id: user.id,
+          tution_id,
+          employee_id: teacherInput.employee_id,
+          date_of_birth: teacherInput.date_of_birth ?? null,
+          gender: teacherInput.gender ?? null,
+          qualification: teacherInput.qualification ?? null,
+          specialization: teacherInput.specialization ?? null,
+          experience_years: teacherInput.experience_years ?? null,
+          joining_date: teacherInput.joining_date ?? null,
+          bio: teacherInput.bio ?? null,
+          phone: teacherInput.phone ?? null,
+          address: teacherInput.address ?? null
+        })
+        .select('*')
+        .single<Teacher>();
+
+      if (error || !data) {
+        console.error('supabase insert teacher failed:', error);
+        await supabase.from('users').delete().eq('id', user.id);
+        res
+          .status(500)
+          .json({ msg: error?.message ?? 'Failed to create teacher profile' });
+        return;
+      }
+      profile = data;
+    }
+
     const token = signToken(user);
-    res.status(201).json({ token, user });
+    res.status(201).json({
+      token,
+      user,
+      ...(role === 'student' && profile ? { student: profile } : {}),
+      ...(role === 'teacher' && profile ? { teacher: profile } : {})
+    });
   } catch (err) {
     console.error('register error:', err);
     res.status(500).json({ msg: 'Server error' });
@@ -426,7 +525,32 @@ export const me = async (req: Request, res: Response): Promise<void> => {
       res.status(404).json({ msg: 'User not found' });
       return;
     }
-    res.json({ user });
+
+    // Pull role-specific profile if applicable
+    let student: Student | null = null;
+    let teacher: Teacher | null = null;
+
+    if (user.role === 'student') {
+      const { data } = await supabase
+        .from('students')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle<Student>();
+      student = data;
+    } else if (user.role === 'teacher') {
+      const { data } = await supabase
+        .from('teachers')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle<Teacher>();
+      teacher = data;
+    }
+
+    res.json({
+      user,
+      ...(student ? { student } : {}),
+      ...(teacher ? { teacher } : {})
+    });
   } catch (err) {
     console.error('me error:', err);
     res.status(500).json({ msg: 'Server error' });
