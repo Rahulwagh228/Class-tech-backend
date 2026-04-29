@@ -6,6 +6,7 @@ import { env } from './config/env.js';
 import { supabaseStatus } from './config/connectSupabase.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { authRouter } from './routes/auth.js';
+import { importRouter } from './routes/import.js';
 
 const logger = pino({ level: env.LOG_LEVEL });
 
@@ -100,6 +101,7 @@ app.get('/_diag', (_request, response) => {
 });
 
 app.use('/api/v1/auth', authRouter);
+app.use('/api/v1', importRouter);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
