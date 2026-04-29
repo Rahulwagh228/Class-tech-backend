@@ -20,6 +20,9 @@ function normalizeEmail(value: unknown): string {
 }
 
 function signToken(user: Pick<User, 'id' | 'tution_id' | 'role'>): string {
+  if (!env.JWT_SECRET) {
+    throw new Error('JWT_SECRET is not set in environment');
+  }
   const payload: JwtPayload = {
     id: user.id,
     tution_id: user.tution_id,
@@ -264,6 +267,10 @@ export const sendEmailOtp = async (req: Request, res: Response): Promise<void> =
       return;
     }
 
+    if (!env.EMAIL_FROM) {
+      res.status(500).json({ msg: 'Server misconfigured: EMAIL_FROM is not set' });
+      return;
+    }
     const { error: mailErr } = await resend.emails.send({
       from: env.EMAIL_FROM,
       to: [email],

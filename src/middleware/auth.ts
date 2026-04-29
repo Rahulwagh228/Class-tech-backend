@@ -10,6 +10,10 @@ declare module 'express-serve-static-core' {
 }
 
 export function requireAuth(req: Request, res: Response, next: NextFunction): void {
+  if (!env.JWT_SECRET) {
+    res.status(500).json({ msg: 'Server misconfigured: JWT_SECRET is not set' });
+    return;
+  }
   const header = req.headers.authorization;
   if (!header?.startsWith('Bearer ')) {
     res.status(401).json({ msg: 'Missing or invalid Authorization header' });
@@ -17,7 +21,7 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
   }
   const token = header.slice('Bearer '.length).trim();
   try {
-    req.user = jwt.verify(token, env.JWT_SECRET) as JwtPayload;
+    req.user = jwt.verify(token, env.JWT_SECRET) as unknown as JwtPayload;
     next();
   } catch {
     res.status(401).json({ msg: 'Invalid or expired token' });
