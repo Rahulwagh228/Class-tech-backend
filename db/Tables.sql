@@ -12,6 +12,13 @@ CREATE TABLE Tutions (
 );
 
 
+CREATE TYPE user_role AS ENUM (
+  'admin',
+  'teacher',
+  'student',
+  'parent'
+);
+
 -- 3.2 users  (admin / teacher / student / parent)
 CREATE TABLE users (
   id                              UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -46,3 +53,5 @@ CREATE TABLE email_otps (
 );
 CREATE INDEX email_otps_email_idx       ON email_otps (email);
 CREATE INDEX email_otps_expires_at_idx  ON email_otps (expires_at);
+
+

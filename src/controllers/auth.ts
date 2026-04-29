@@ -28,6 +28,7 @@ function signToken(user: Pick<User, 'id' | 'tution_id' | 'role'>): string {
 export const register = async (req: Request, res: Response): Promise<void> => {
   try {
     const { tution_id, name, username, email, password, role, profile_photo } = req.body ?? {};
+    console.log("register api hitt with role:", role)
 
     if (!tution_id || !name || !username || !email || !password || !role) {
       res
@@ -81,20 +82,32 @@ export const register = async (req: Request, res: Response): Promise<void> => {
 };
 
 // =============================================================================
-// POST /api/v1/auth/login
-// body: { email, password, role }
-//   role enforces which portal the user is signing in through (admin portal,
-//   student portal, etc.). Server rejects if role mismatches the stored role.
+// Internal: shared login flow. Pass `expectedRole` to lock a portal to a role,
+// or `null` for the generic /login endpoint that takes role in the body.
 // =============================================================================
-export const login = async (req: Request, res: Response): Promise<void> => {
+async function performLogin(
+  req: Request,
+  res: Response,
+  expectedRole: UserRole | null
+): Promise<void> {
   try {
-    const { email, password, role } = req.body ?? {};
+    const { email, password } = req.body ?? {};
+    const bodyRole: unknown = req.body?.role;
 
-    if (!email || !password || !role) {
-      res.status(400).json({ msg: 'email, password and role are required' });
+    if (!email || !password) {
+      res.status(400).json({ msg: 'email and password are required' });
       return;
     }
-    if (!ALLOWED_ROLES.includes(role)) {
+
+    // For the generic endpoint, role must come from the body.
+    const requiredRole: UserRole | null =
+      expectedRole ?? (typeof bodyRole === 'string' ? (bodyRole as UserRole) : null);
+
+    if (!requiredRole) {
+      res.status(400).json({ msg: 'role is required' });
+      return;
+    }
+    if (!ALLOWED_ROLES.includes(requiredRole)) {
       res.status(400).json({ msg: `role must be one of: ${ALLOWED_ROLES.join(', ')}` });
       return;
     }
@@ -108,7 +121,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     );
     const user = result.rows[0];
     if (!user) {
-      res.status(401).json({ msg: 'Invalid credentials' });
+      res.status(401).json({ msg: 'user not found' });
       return;
     }
 
@@ -118,8 +131,8 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    if (user.role !== role) {
-      res.status(403).json({ msg: `This account is not registered as ${role}` });
+    if (user.role !== requiredRole) {
+      res.status(403).json({ msg: `This account is not registered as ${requiredRole}` });
       return;
     }
 
@@ -131,7 +144,20 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     console.error('login error:', err);
     res.status(500).json({ msg: 'Server error' });
   }
-};
+}
+
+// =============================================================================
+// POST /api/v1/auth/login                  body: { email, password, role }
+// POST /api/v1/auth/admin/login            body: { email, password }
+// POST /api/v1/auth/teacher/login          body: { email, password }
+// POST /api/v1/auth/student/login          body: { email, password }
+// POST /api/v1/auth/parent/login           body: { email, password }
+// =============================================================================
+export const login          = (req: Request, res: Response) => performLogin(req, res, null);
+export const loginAsAdmin   = (req: Request, res: Response) => performLogin(req, res, 'admin');
+export const loginAsTeacher = (req: Request, res: Response) => performLogin(req, res, 'teacher');
+export const loginAsStudent = (req: Request, res: Response) => performLogin(req, res, 'student');
+export const loginAsParent  = (req: Request, res: Response) => performLogin(req, res, 'parent');
 
 // =============================================================================
 // POST /api/v1/auth/send-otp     body: { email }
