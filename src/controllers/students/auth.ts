@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 import jwt, { type SignOptions } from 'jsonwebtoken';
 import supabase from '../../config/connectSupabase.js';
 import { env } from '../../config/env.js';
-import type { JwtPayload, Student, User, UserResponse } from '../../models/User.model.js';
+import type { JwtPayload, User, UserResponse } from '../../models/User.model.js';
 
 // =============================================================================
 // POST /api/v1/students/auth/login
@@ -109,34 +109,6 @@ export const studentLogin = async (req: Request, res: Response): Promise<void> =
       return;
     }
 
-    // ── Fetch student profile (join row) ─────────────────────────────────────
-    const { data: studentProfile, error: studentErr } = await supabase
-      .from('students')
-      .select(
-        `enrollment_number,
-         date_of_birth,
-         gender,
-         grade_level,
-         section,
-         blood_group,
-         guardian_name,
-         guardian_phone,
-         emergency_contact,
-         address,
-         admission_date,
-         notes,
-         created_at,
-         updated_at`
-      )
-      .eq('user_id', user.id)
-      .maybeSingle<Student>();
-
-    if (studentErr) {
-      console.error('studentLogin: student profile fetch failed:', studentErr);
-      res.status(500).json({ msg: 'Server error fetching student profile' });
-      return;
-    }
-
     // ── Sign JWT ─────────────────────────────────────────────────────────────
     const token = signToken(user);
 
@@ -146,8 +118,7 @@ export const studentLogin = async (req: Request, res: Response): Promise<void> =
 
     res.status(200).json({
       token,
-      user: userResponse,
-      student: studentProfile ?? null
+      user: userResponse
     });
   } catch (err) {
     console.error('studentLogin error:', err);
