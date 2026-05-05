@@ -24,7 +24,8 @@ const allowedOrigins = new Set<string>([
   env.APP_URL,                           // whatever you set in .env (defaults to http://localhost:3000)
   'http://localhost:3000',
   'http://localhost:3001',
-  'http://localhost:5173',               // Vite default
+  'http://localhost:5173',
+  // 'http://10.138.76.189:5000',               // Vite default
   'https://class-tech-sooty.vercel.app'  // production frontend
 ]);
 
