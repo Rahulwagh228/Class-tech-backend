@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { checkTeacherUsername, createTeacher } from '../controllers/teachers/create.js';
 import { listTeachers } from '../controllers/teachers/list.js';
+import { teacherDetails } from '../controllers/teachers/details.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 
 export const teachersRouter = Router();
@@ -20,3 +21,11 @@ teachersRouter.post(
 
 // POST /api/v1/teachers/create — add a single teacher (admin only)
 teachersRouter.post('/create', requireAuth, requireRole('admin'), createTeacher);
+
+// GET /api/v1/teachers/:teacherId — full profile (users + teachers joined)
+teachersRouter.get(
+  '/:teacherId',
+  requireAuth,
+  requireRole('admin', 'teacher'),
+  teacherDetails
+);
