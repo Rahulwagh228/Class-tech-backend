@@ -8,6 +8,7 @@ import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { authRouter } from './routes/auth.js';
 import { importRouter } from './routes/import.js';
 import { studentsRouter } from './routes/students.js';
+import { teachersRouter } from './routes/teachers.js';
 
 const logger = pino({ level: env.LOG_LEVEL });
 
@@ -105,6 +106,7 @@ app.get('/_diag', (_request, response) => {
 app.use('/api/v1/auth', authRouter);
 app.use('/api/v1', importRouter);
 app.use('/api/v1/students', studentsRouter);
+app.use('/api/v1/teachers', teachersRouter);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
