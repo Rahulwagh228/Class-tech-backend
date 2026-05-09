@@ -6,12 +6,15 @@ import {
   verifyEmailOtp
 } from '../controllers/auth.js';
 import { requireAuth } from '../middleware/auth.js';
+import { register } from '../controllers/auth.js';
 
 export const authRouter = Router();
 
 // ── Public ──────────────────────────────────────────────────────────────────
 // Admin portal login (admins don't have their own router yet)
 authRouter.post('/admin/login', loginAsAdmin);
+authRouter.post('/admin/register', register);
+
 
 // Email verification
 authRouter.post('/send-otp', sendEmailOtp);
