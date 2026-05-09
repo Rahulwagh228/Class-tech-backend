@@ -2,7 +2,6 @@ import type { Request, Response } from 'express';
 import supabase from '../../config/connectSupabase.js';
 import { daysBetween, isIsoDate, isoDateNDaysAgo, todayIsoDate } from '../../lib/dates.js';
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DEFAULT_LOOKBACK_DAYS = 90;
 const MAX_RANGE_DAYS = 365;
 
@@ -22,11 +21,8 @@ interface AttendanceRow {
 // GET /api/v1/attendance/students/:studentId
 //   ?from=YYYY-MM-DD&to=YYYY-MM-DD  - inclusive range, max 365 days
 //
-// Auth:
-//   - admins can view any student in their tution
-//   - students can view their own history
-// (Teachers go through the per-batch endpoints; we don't expose every-batch
-//  history to teachers here to keep cross-batch privacy clean.)
+// Auth is enforced upstream by requireStudentAccess: admin / self / linked
+// parent. Cross-tenant lookups return 404, not 403, to avoid existence leaks.
 // =============================================================================
 export const studentAttendanceHistory = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -35,42 +31,7 @@ export const studentAttendanceHistory = async (req: Request, res: Response): Pro
       return;
     }
     const tution_id = req.user.tution_id;
-    if (!tution_id) {
-      res.status(400).json({ msg: 'Token has no tution_id' });
-      return;
-    }
-
-    const studentId = req.params.studentId as string | undefined;
-    if (!studentId || !UUID_RE.test(studentId)) {
-      res.status(400).json({ msg: 'studentId must be a valid UUID' });
-      return;
-    }
-
-    const role = req.user.role;
-    if (role !== 'admin' && !(role === 'student' && req.user.id === studentId)) {
-      res.status(403).json({ msg: 'Not authorized to view this history' });
-      return;
-    }
-
-    // Confirm the student exists in this tution. Returns 404 instead of 403
-    // when crossing tenants to avoid existence leakage.
-    const { data: studentUser, error: studentErr } = await supabase
-      .from('users')
-      .select('id, tution_id, role')
-      .eq('id', studentId)
-      .eq('tution_id', tution_id)
-      .eq('role', 'student')
-      .maybeSingle<{ id: string; tution_id: string; role: string }>();
-
-    if (studentErr) {
-      console.error('studentAttendanceHistory: student lookup failed:', studentErr);
-      res.status(500).json({ msg: 'Server error' });
-      return;
-    }
-    if (!studentUser) {
-      res.status(404).json({ msg: 'Student not found' });
-      return;
-    }
+    const studentId = req.params.studentId as string;
 
     const { from, to } = req.query as Record<string, string | undefined>;
     const fromDate = from ?? isoDateNDaysAgo(DEFAULT_LOOKBACK_DAYS - 1);

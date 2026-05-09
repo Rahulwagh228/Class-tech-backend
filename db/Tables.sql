@@ -168,3 +168,28 @@ CREATE TABLE attendance_records (
 CREATE INDEX attendance_tution_idx       ON attendance_records (tution_id);
 CREATE INDEX attendance_batch_date_idx   ON attendance_records (batch_id, attendance_date);
 CREATE INDEX attendance_student_date_idx ON attendance_records (student_id, attendance_date);
+
+
+-- =============================================================================
+-- 3.6 parent_students  (many-to-many link between parent users and student users)
+--   Lets a parent see attendance for any student they're linked to. Many-to-many
+--   so a parent can have multiple children and a student can have multiple
+--   parents (e.g. shared custody). The unique constraint prevents duplicate
+--   links; is_primary flags the default contact.
+-- =============================================================================
+CREATE TABLE parent_students (
+  id                UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+  tution_id         UUID         NOT NULL REFERENCES tutions(id) ON DELETE CASCADE,
+  parent_user_id    UUID         NOT NULL REFERENCES users(id)   ON DELETE CASCADE,
+  student_user_id   UUID         NOT NULL REFERENCES users(id)   ON DELETE CASCADE,
+  relationship      VARCHAR(40),
+  is_primary        BOOLEAN      NOT NULL DEFAULT FALSE,
+  created_at        TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+
+  CONSTRAINT parent_students_unique UNIQUE (parent_user_id, student_user_id)
+);
+CREATE INDEX parent_students_parent_idx  ON parent_students (parent_user_id);
+CREATE INDEX parent_students_student_idx ON parent_students (student_user_id);
+CREATE INDEX parent_students_tution_idx  ON parent_students (tution_id);
+
+

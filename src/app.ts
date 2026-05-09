@@ -9,6 +9,7 @@ import { attendanceRouter } from './routes/attendance.js';
 import { authRouter } from './routes/auth.js';
 import { batchesRouter } from './routes/batches.js';
 import { importRouter } from './routes/import.js';
+import { parentsRouter } from './routes/parents.js';
 import { studentsRouter } from './routes/students.js';
 import { teachersRouter } from './routes/teachers.js';
 
@@ -109,6 +110,7 @@ app.use('/api/v1/auth', authRouter);
 app.use('/api/v1/attendance', attendanceRouter);
 app.use('/api/v1/batches', batchesRouter);
 app.use('/api/v1', importRouter);
+app.use('/api/v1/parents', parentsRouter);
 app.use('/api/v1/students', studentsRouter);
 app.use('/api/v1/teachers', teachersRouter);
 

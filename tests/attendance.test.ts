@@ -58,3 +58,53 @@ describe('attendance routes - auth guard', () => {
     expect(res.status).toBe(401);
   });
 });
+
+describe('attendance student/parent routes - auth guard', () => {
+  it('rejects GET /me without auth', async () => {
+    const res = await request(app).get('/api/v1/attendance/me');
+    expect(res.status).toBe(401);
+  });
+
+  it('rejects GET /me/heatmap without auth', async () => {
+    const res = await request(app).get('/api/v1/attendance/me/heatmap');
+    expect(res.status).toBe(401);
+  });
+
+  it('rejects GET /me/batches without auth', async () => {
+    const res = await request(app).get('/api/v1/attendance/me/batches');
+    expect(res.status).toBe(401);
+  });
+
+  it('rejects GET /me/batches/:batchId without auth', async () => {
+    const res = await request(app).get(
+      '/api/v1/attendance/me/batches/00000000-0000-0000-0000-000000000000'
+    );
+    expect(res.status).toBe(401);
+  });
+
+  it('rejects GET /students/:id/heatmap without auth', async () => {
+    const res = await request(app).get(
+      '/api/v1/attendance/students/00000000-0000-0000-0000-000000000000/heatmap'
+    );
+    expect(res.status).toBe(401);
+  });
+
+  it('rejects GET /students/:id/batches without auth', async () => {
+    const res = await request(app).get(
+      '/api/v1/attendance/students/00000000-0000-0000-0000-000000000000/batches'
+    );
+    expect(res.status).toBe(401);
+  });
+
+  it('rejects GET /students/:id/batches/:batchId without auth', async () => {
+    const res = await request(app).get(
+      '/api/v1/attendance/students/00000000-0000-0000-0000-000000000000/batches/00000000-0000-0000-0000-000000000000'
+    );
+    expect(res.status).toBe(401);
+  });
+
+  it('rejects GET /api/v1/parents/me/children without auth', async () => {
+    const res = await request(app).get('/api/v1/parents/me/children');
+    expect(res.status).toBe(401);
+  });
+});
