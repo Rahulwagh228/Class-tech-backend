@@ -136,3 +136,35 @@ CREATE TABLE batches (
 
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+
+-- =============================================================================
+-- 3.5 attendance_records  (one row per batch x student x day)
+--   tution_id is denormalized so every read can scope by institution without
+--   joining batches. This matches the codebase's tenant-isolation pattern and
+--   keeps the row RLS-policy-ready.
+-- =============================================================================
+CREATE TYPE attendance_status AS ENUM ('present', 'absent', 'late', 'excused');
+
+CREATE TABLE attendance_records (
+  id                UUID                PRIMARY KEY DEFAULT gen_random_uuid(),
+  tution_id         UUID                NOT NULL REFERENCES tutions(id) ON DELETE CASCADE,
+  batch_id          UUID                NOT NULL REFERENCES batches(id) ON DELETE CASCADE,
+  student_id        UUID                NOT NULL REFERENCES users(id)   ON DELETE CASCADE,
+
+  attendance_date   DATE                NOT NULL,
+  status            attendance_status   NOT NULL,
+  notes             TEXT,
+
+  marked_by         UUID                NOT NULL REFERENCES users(id),
+  last_edited_by    UUID                REFERENCES users(id),
+
+  created_at        TIMESTAMPTZ         NOT NULL DEFAULT NOW(),
+  updated_at        TIMESTAMPTZ         NOT NULL DEFAULT NOW(),
+
+  CONSTRAINT attendance_unique_per_day UNIQUE (batch_id, student_id, attendance_date)
+);
+
+CREATE INDEX attendance_tution_idx       ON attendance_records (tution_id);
+CREATE INDEX attendance_batch_date_idx   ON attendance_records (batch_id, attendance_date);
+CREATE INDEX attendance_student_date_idx ON attendance_records (student_id, attendance_date);

@@ -5,6 +5,7 @@ import type { NextFunction, Request, Response } from 'express';
 import { env } from './config/env.js';
 import { supabaseStatus } from './config/connectSupabase.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
+import { attendanceRouter } from './routes/attendance.js';
 import { authRouter } from './routes/auth.js';
 import { batchesRouter } from './routes/batches.js';
 import { importRouter } from './routes/import.js';
@@ -105,6 +106,7 @@ app.get('/_diag', (_request, response) => {
 });
 
 app.use('/api/v1/auth', authRouter);
+app.use('/api/v1/attendance', attendanceRouter);
 app.use('/api/v1/batches', batchesRouter);
 app.use('/api/v1', importRouter);
 app.use('/api/v1/students', studentsRouter);
