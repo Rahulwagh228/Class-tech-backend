@@ -114,3 +114,25 @@ CREATE TABLE teachers (
   CONSTRAINT teachers_employee_unique UNIQUE (tution_id, employee_id)
 );
 CREATE INDEX teachers_tution_idx ON teachers (tution_id);
+
+
+CREATE TABLE batches (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+  tution_id UUID NOT NULL REFERENCES tutions(id) ON DELETE CASCADE,
+
+  name VARCHAR(100) NOT NULL,
+  code VARCHAR(50) UNIQUE NOT NULL,
+
+  subject VARCHAR(100),
+  description TEXT,
+
+  schedule VARCHAR(100),
+
+  teacher_id UUID REFERENCES users(id),
+
+  start_date DATE NOT NULL,
+  end_date DATE,
+
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
