@@ -129,13 +129,49 @@ CREATE TABLE batches (
 
   schedule VARCHAR(100),
 
-  teacher_id UUID REFERENCES users(id),
+  -- Teachers live in batch_teachers (many-to-many). See section 3.6 below.
 
   start_date DATE NOT NULL,
   end_date DATE,
 
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+
+-- =============================================================================
+-- batch_teachers  (many-to-many link between batches and teacher users)
+--   Allows multiple teachers per batch (e.g. lead + assistant, co-teaching).
+--   is_lead = TRUE marks the primary instructor; defaults to FALSE.
+--   Attendance ownership checks query this table - any teacher assigned to a
+--   batch may mark attendance for it. Lead distinction is purely informational.
+-- =============================================================================
+CREATE TABLE batch_teachers (
+  id                 UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+  tution_id          UUID         NOT NULL REFERENCES tutions(id) ON DELETE CASCADE,
+  batch_id           UUID         NOT NULL REFERENCES batches(id) ON DELETE CASCADE,
+  teacher_user_id    UUID         NOT NULL REFERENCES users(id)   ON DELETE CASCADE,
+  is_lead            BOOLEAN      NOT NULL DEFAULT FALSE,
+  assigned_at        TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+
+  CONSTRAINT batch_teachers_unique UNIQUE (batch_id, teacher_user_id)
+);
+CREATE INDEX batch_teachers_batch_idx   ON batch_teachers (batch_id);
+CREATE INDEX batch_teachers_teacher_idx ON batch_teachers (teacher_user_id);
+CREATE INDEX batch_teachers_tution_idx  ON batch_teachers (tution_id);
+
+
+-- =============================================================================
+-- MIGRATION  (run on an existing DB that already has batches.teacher_id rows)
+-- =============================================================================
+-- 1. Create the join table (block above).
+-- 2. Backfill existing single-teacher assignments as lead:
+--      INSERT INTO batch_teachers (tution_id, batch_id, teacher_user_id, is_lead)
+--      SELECT tution_id, id, teacher_id, TRUE
+--      FROM batches
+--      WHERE teacher_id IS NOT NULL;
+-- 3. Drop the old column:
+--      ALTER TABLE batches DROP COLUMN teacher_id;
+-- =============================================================================
 
 
 -- =============================================================================

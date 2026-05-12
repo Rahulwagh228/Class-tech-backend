@@ -9,7 +9,6 @@ type BatchRow = {
   subject: string | null;
   description: string | null;
   schedule: string | null;
-  teacher_id: string | null;
   start_date: string;
   end_date: string | null;
   created_at: string;
@@ -21,6 +20,16 @@ type BatchStudentRow = {
   student_id: string;
   joined_at: string;
 };
+
+type BatchTeacherRow = {
+  id: string;
+  batch_id: string;
+  teacher_user_id: string;
+  is_lead: boolean;
+  assigned_at: string;
+};
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function trimString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
@@ -81,10 +90,46 @@ export const createBatch = async (req: Request, res: Response): Promise<void> =>
     const subject = nullIfEmpty(body.subject);
     const description = nullIfEmpty(body.description);
     const schedule = nullIfEmpty(body.schedule);
-    const teacher_id =
-      body.teacher_id === undefined || body.teacher_id === null || body.teacher_id === ''
-        ? null
-        : trimString(body.teacher_id);
+
+    // teacher_ids: string[] (UUIDs of teacher users). Optional - a batch can
+    // be created with no teachers assigned yet. lead_teacher_id (optional)
+    // must appear in teacher_ids.
+    const rawTeacherIds = body.teacher_ids === undefined || body.teacher_ids === null ? [] : body.teacher_ids;
+    if (!Array.isArray(rawTeacherIds)) {
+      res.status(400).json({ msg: 'teacher_ids must be an array of UUID strings' });
+      return;
+    }
+    const teacherIdSet = new Set<string>();
+    for (const value of rawTeacherIds) {
+      if (typeof value !== 'string') {
+        res.status(400).json({ msg: 'teacher_ids must contain only non-empty strings' });
+        return;
+      }
+      const trimmed = value.trim();
+      if (!trimmed || !UUID_RE.test(trimmed)) {
+        res.status(400).json({ msg: 'teacher_ids must be valid UUIDs' });
+        return;
+      }
+      teacherIdSet.add(trimmed);
+    }
+    const teacher_ids = Array.from(teacherIdSet);
+
+    let lead_teacher_id: string | null = null;
+    if (body.lead_teacher_id !== undefined && body.lead_teacher_id !== null && body.lead_teacher_id !== '') {
+      if (typeof body.lead_teacher_id !== 'string' || !UUID_RE.test(body.lead_teacher_id.trim())) {
+        res.status(400).json({ msg: 'lead_teacher_id must be a valid UUID' });
+        return;
+      }
+      lead_teacher_id = body.lead_teacher_id.trim();
+      if (!teacherIdSet.has(lead_teacher_id)) {
+        res.status(400).json({ msg: 'lead_teacher_id must also appear in teacher_ids' });
+        return;
+      }
+    } else if (teacher_ids.length === 1) {
+      // Convenience: when a batch is created with a single teacher, mark them
+      // as lead automatically. Callers can override by passing lead_teacher_id.
+      lead_teacher_id = teacher_ids[0]!;
+    }
 
     let start_date = todayIsoDate();
     if (body.start_date !== undefined && body.start_date !== null && body.start_date !== '') {
@@ -102,11 +147,6 @@ export const createBatch = async (req: Request, res: Response): Promise<void> =>
         return;
       }
       end_date = body.end_date.trim();
-    }
-
-    if (body.teacher_id !== undefined && body.teacher_id !== null && typeof body.teacher_id !== 'string') {
-      res.status(400).json({ msg: 'teacher_id must be a string or null' });
-      return;
     }
 
     const rawStudentIds =
@@ -187,15 +227,13 @@ export const createBatch = async (req: Request, res: Response): Promise<void> =>
       return;
     }
 
-    let resolvedTeacherId: string | null = null;
-    if (teacher_id) {
-      const { data: teacherUser, error: teacherErr } = await supabase
+    if (teacher_ids.length > 0) {
+      const { data: teacherUsers, error: teacherErr } = await supabase
         .from('users')
         .select('id')
-        .eq('id', teacher_id)
         .eq('tution_id', tution_id)
         .eq('role', 'teacher')
-        .maybeSingle();
+        .in('id', teacher_ids);
 
       if (teacherErr) {
         console.error('createBatch: teacher lookup failed:', teacherErr);
@@ -203,14 +241,15 @@ export const createBatch = async (req: Request, res: Response): Promise<void> =>
         return;
       }
 
-      if (!teacherUser) {
+      const foundTeacherIds = new Set((teacherUsers ?? []).map((t) => (t as { id: string }).id));
+      const invalidTeacherIds = teacher_ids.filter((id) => !foundTeacherIds.has(id));
+      if (invalidTeacherIds.length > 0) {
         res.status(400).json({
-          msg: 'teacher_id must reference a teacher in this tution'
+          msg: 'One or more teacher_ids are invalid or do not belong to this tution',
+          invalid_teacher_ids: invalidTeacherIds
         });
         return;
       }
-
-      resolvedTeacherId = teacherUser.id;
     }
 
     let enrolledStudents: BatchStudentRow[] = [];
@@ -249,12 +288,11 @@ export const createBatch = async (req: Request, res: Response): Promise<void> =>
         subject,
         description,
         schedule,
-        teacher_id: resolvedTeacherId,
         start_date,
         end_date
       })
       .select(
-        'id, tution_id, name, code, subject, description, schedule, teacher_id, start_date, end_date, created_at'
+        'id, tution_id, name, code, subject, description, schedule, start_date, end_date, created_at'
       )
       .single<BatchRow>();
 
@@ -262,6 +300,32 @@ export const createBatch = async (req: Request, res: Response): Promise<void> =>
       console.error('createBatch: batch insert failed:', batchErr);
       res.status(500).json({ msg: batchErr?.message ?? 'Failed to create batch' });
       return;
+    }
+
+    let assignedTeachers: BatchTeacherRow[] = [];
+    if (teacher_ids.length > 0) {
+      const batchTeacherRows = teacher_ids.map((tid) => ({
+        tution_id,
+        batch_id: batch.id,
+        teacher_user_id: tid,
+        is_lead: tid === lead_teacher_id
+      }));
+
+      const { data: batchTeachers, error: batchTeachersErr } = await supabase
+        .from('batch_teachers')
+        .insert(batchTeacherRows)
+        .select('id, batch_id, teacher_user_id, is_lead, assigned_at');
+
+      if (batchTeachersErr || !batchTeachers) {
+        console.error('createBatch: batch_teachers insert failed:', batchTeachersErr);
+        await supabase.from('batches').delete().eq('id', batch.id);
+        res.status(500).json({
+          msg: batchTeachersErr?.message ?? 'Failed to assign teachers to batch'
+        });
+        return;
+      }
+
+      assignedTeachers = batchTeachers as BatchTeacherRow[];
     }
 
     if (student_ids.length > 0) {
@@ -277,6 +341,8 @@ export const createBatch = async (req: Request, res: Response): Promise<void> =>
 
       if (batchStudentsErr || !batchStudents) {
         console.error('createBatch: batch_students insert failed:', batchStudentsErr);
+        // Roll back both the batch and any teacher assignments. The CASCADE
+        // on batches handles batch_teachers automatically.
         await supabase.from('batches').delete().eq('id', batch.id);
         res.status(500).json({
           msg: batchStudentsErr?.message ?? 'Failed to add students to batch'
@@ -290,6 +356,8 @@ export const createBatch = async (req: Request, res: Response): Promise<void> =>
     res.status(201).json({
       msg: 'Batch created successfully',
       batch,
+      teacher_ids,
+      assigned_teachers: assignedTeachers,
       student_ids,
       enrolled_students: enrolledStudents
     });

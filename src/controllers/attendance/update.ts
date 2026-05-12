@@ -97,10 +97,10 @@ export const updateAttendance = async (req: Request, res: Response): Promise<voi
 
     const { data: batch, error: batchErr } = await supabase
       .from('batches')
-      .select('id, teacher_id, tution_id')
+      .select('id, tution_id')
       .eq('id', existing.batch_id)
       .eq('tution_id', tution_id)
-      .maybeSingle<{ id: string; teacher_id: string | null; tution_id: string }>();
+      .maybeSingle<{ id: string; tution_id: string }>();
 
     if (batchErr) {
       console.error('updateAttendance: batch lookup failed:', batchErr);
@@ -113,9 +113,22 @@ export const updateAttendance = async (req: Request, res: Response): Promise<voi
     }
 
     const role = req.user.role;
-    const isAdmin = role === 'admin';
-    const isOwningTeacher = role === 'teacher' && batch.teacher_id === req.user.id;
-    if (!isAdmin && !isOwningTeacher) {
+    let authorized = role === 'admin';
+    if (!authorized && role === 'teacher') {
+      const { data: link, error: linkErr } = await supabase
+        .from('batch_teachers')
+        .select('id')
+        .eq('batch_id', batch.id)
+        .eq('teacher_user_id', req.user.id)
+        .maybeSingle<{ id: string }>();
+      if (linkErr) {
+        console.error('updateAttendance: batch_teachers lookup failed:', linkErr);
+        res.status(500).json({ msg: 'Server error' });
+        return;
+      }
+      authorized = link !== null;
+    }
+    if (!authorized) {
       res.status(403).json({ msg: 'Not authorized to edit this record' });
       return;
     }

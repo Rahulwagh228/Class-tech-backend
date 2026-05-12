@@ -4,7 +4,6 @@ import supabase from '../config/connectSupabase.js';
 export interface BatchContext {
   id: string;
   tution_id: string;
-  teacher_id: string | null;
 }
 
 declare module 'express-serve-static-core' {
@@ -18,7 +17,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 // Loads the batch identified by req.params.batchId, then enforces:
 //   1. The batch exists.
 //   2. The batch belongs to the caller's institution (tution_id).
-//   3. The caller is admin OR (teacher AND batch.teacher_id === caller.id).
+//   3. The caller is admin OR (teacher AND assigned via batch_teachers).
 //
 // On success it attaches req.batch and calls next(). Returns 404 (not 403)
 // for cross-tenant access so we don't leak existence of other institutions'
@@ -51,7 +50,7 @@ export async function requireBatchAccess(
 
   const { data: batch, error } = await supabase
     .from('batches')
-    .select('id, tution_id, teacher_id')
+    .select('id, tution_id')
     .eq('id', batchId)
     .eq('tution_id', tution_id)
     .maybeSingle<BatchContext>();
@@ -74,10 +73,25 @@ export async function requireBatchAccess(
     return;
   }
 
-  if (role === 'teacher' && batch.teacher_id === req.user.id) {
-    req.batch = batch;
-    next();
-    return;
+  if (role === 'teacher') {
+    const { data: link, error: linkErr } = await supabase
+      .from('batch_teachers')
+      .select('id')
+      .eq('batch_id', batch.id)
+      .eq('teacher_user_id', req.user.id)
+      .maybeSingle<{ id: string }>();
+
+    if (linkErr) {
+      console.error('requireBatchAccess: batch_teachers lookup failed:', linkErr);
+      res.status(500).json({ msg: 'Server error' });
+      return;
+    }
+
+    if (link) {
+      req.batch = batch;
+      next();
+      return;
+    }
   }
 
   res.status(403).json({ msg: 'Not authorized to manage this batch' });

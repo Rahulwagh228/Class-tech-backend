@@ -18,7 +18,6 @@ interface BatchRow {
   code: string;
   subject: string | null;
   schedule: string | null;
-  teacher_id: string | null;
   start_date: string;
   end_date: string | null;
 }
@@ -32,6 +31,12 @@ interface TeacherRow {
   id: string;
   name: string;
   profile_photo: string | null;
+}
+
+interface BatchTeacherLink {
+  batch_id: string;
+  teacher_user_id: string;
+  is_lead: boolean;
 }
 
 // =============================================================================
@@ -87,10 +92,14 @@ export const studentBatches = async (req: Request, res: Response): Promise<void>
     }
     const joinedAt = new Map(enrollmentRows.map((e) => [e.batch_id, e.joined_at]));
 
-    const [{ data: batches, error: batchesErr }, { data: counts, error: countsErr }] = await Promise.all([
+    const [
+      { data: batches, error: batchesErr },
+      { data: counts, error: countsErr },
+      { data: teacherLinks, error: teacherLinksErr }
+    ] = await Promise.all([
       supabase
         .from('batches')
-        .select('id, name, code, subject, schedule, teacher_id, start_date, end_date')
+        .select('id, name, code, subject, schedule, start_date, end_date')
         .eq('tution_id', tution_id)
         .in('id', batchIds),
       supabase
@@ -100,7 +109,11 @@ export const studentBatches = async (req: Request, res: Response): Promise<void>
         .eq('student_id', studentId)
         .in('batch_id', batchIds)
         .gte('attendance_date', fromDate)
-        .lte('attendance_date', toDate)
+        .lte('attendance_date', toDate),
+      supabase
+        .from('batch_teachers')
+        .select('batch_id, teacher_user_id, is_lead')
+        .in('batch_id', batchIds)
     ]);
 
     if (batchesErr) {
@@ -113,16 +126,29 @@ export const studentBatches = async (req: Request, res: Response): Promise<void>
       res.status(500).json({ msg: 'Server error' });
       return;
     }
+    if (teacherLinksErr) {
+      console.error('studentBatches: batch_teachers lookup failed:', teacherLinksErr);
+      res.status(500).json({ msg: 'Server error' });
+      return;
+    }
 
     const batchRows = (batches ?? []) as BatchRow[];
-    const teacherIds = Array.from(new Set(batchRows.map((b) => b.teacher_id).filter(Boolean) as string[]));
+    const teacherLinksByBatch = new Map<string, BatchTeacherLink[]>();
+    const allTeacherIds = new Set<string>();
+    for (const link of (teacherLinks ?? []) as BatchTeacherLink[]) {
+      const list = teacherLinksByBatch.get(link.batch_id) ?? [];
+      list.push(link);
+      teacherLinksByBatch.set(link.batch_id, list);
+      allTeacherIds.add(link.teacher_user_id);
+    }
+
     const teacherMap = new Map<string, TeacherRow>();
-    if (teacherIds.length > 0) {
+    if (allTeacherIds.size > 0) {
       const { data: teachers, error: teachersErr } = await supabase
         .from('users')
         .select('id, name, profile_photo')
         .eq('tution_id', tution_id)
-        .in('id', teacherIds);
+        .in('id', Array.from(allTeacherIds));
       if (teachersErr) {
         console.error('studentBatches: teacher lookup failed:', teachersErr);
         res.status(500).json({ msg: 'Server error' });
@@ -144,6 +170,15 @@ export const studentBatches = async (req: Request, res: Response): Promise<void>
       const c = countMap.get(b.id) ?? blank();
       const denom = c.present + c.absent + c.late;
       const percentage = denom === 0 ? null : Math.round((c.present / denom) * 1000) / 10;
+      const links = teacherLinksByBatch.get(b.id) ?? [];
+      const teachers = links
+        .map((l) => {
+          const u = teacherMap.get(l.teacher_user_id);
+          return u ? { ...u, is_lead: l.is_lead } : null;
+        })
+        .filter((t): t is TeacherRow & { is_lead: boolean } => t !== null)
+        .sort((a, b) => (b.is_lead ? 1 : 0) - (a.is_lead ? 1 : 0) || a.name.localeCompare(b.name));
+
       return {
         id: b.id,
         name: b.name,
@@ -153,7 +188,7 @@ export const studentBatches = async (req: Request, res: Response): Promise<void>
         start_date: b.start_date,
         end_date: b.end_date,
         joined_at: joinedAt.get(b.id) ?? null,
-        teacher: b.teacher_id ? teacherMap.get(b.teacher_id) ?? null : null,
+        teachers,
         summary: {
           from: fromDate,
           to: toDate,

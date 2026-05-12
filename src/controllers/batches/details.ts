@@ -9,7 +9,6 @@ type BatchRow = {
   subject: string | null;
   description: string | null;
   schedule: string | null;
-  teacher_id: string | null;
   start_date: string;
   end_date: string | null;
   created_at: string;
@@ -21,6 +20,11 @@ type TeacherUserRow = {
   username: string;
   email: string;
   profile_photo: string | null;
+};
+
+type BatchTeacherLink = {
+  teacher_user_id: string;
+  is_lead: boolean;
 };
 
 type BatchStudentRow = {
@@ -73,7 +77,7 @@ export const batchDetails = async (req: Request, res: Response): Promise<void> =
     const { data: batch, error: batchErr } = await supabase
       .from('batches')
       .select(
-        'id, tution_id, name, code, subject, description, schedule, teacher_id, start_date, end_date, created_at'
+        'id, tution_id, name, code, subject, description, schedule, start_date, end_date, created_at'
       )
       .eq('id', batchId)
       .eq('tution_id', tution_id)
@@ -105,22 +109,37 @@ export const batchDetails = async (req: Request, res: Response): Promise<void> =
       institution_name = tutionRow.name;
     }
 
-    let teacher: {
+    const { data: teacherLinks, error: teacherLinksErr } = await supabase
+      .from('batch_teachers')
+      .select('teacher_user_id, is_lead')
+      .eq('batch_id', batch.id);
+
+    if (teacherLinksErr) {
+      console.error('batchDetails: batch_teachers lookup failed:', teacherLinksErr);
+      res.status(500).json({ msg: 'Server error' });
+      return;
+    }
+
+    const teacherLinkRows = (teacherLinks ?? []) as BatchTeacherLink[];
+    const teacherIds = teacherLinkRows.map((t) => t.teacher_user_id);
+    const isLeadMap = new Map<string, boolean>(teacherLinkRows.map((t) => [t.teacher_user_id, t.is_lead]));
+
+    let teachers: Array<{
       id: string;
       name: string;
       username: string;
       email: string;
       profile_photo: string | null;
-    } | null = null;
+      is_lead: boolean;
+    }> = [];
 
-    if (batch.teacher_id) {
-      const { data: teacherUser, error: teacherErr } = await supabase
+    if (teacherIds.length > 0) {
+      const { data: teacherUsers, error: teacherErr } = await supabase
         .from('users')
         .select('id, name, username, email, profile_photo')
-        .eq('id', batch.teacher_id)
         .eq('tution_id', batch.tution_id)
         .eq('role', 'teacher')
-        .maybeSingle<TeacherUserRow>();
+        .in('id', teacherIds);
 
       if (teacherErr) {
         console.error('batchDetails: teacher lookup failed:', teacherErr);
@@ -128,15 +147,16 @@ export const batchDetails = async (req: Request, res: Response): Promise<void> =
         return;
       }
 
-      if (teacherUser) {
-        teacher = {
-          id: teacherUser.id,
-          name: teacherUser.name,
-          username: teacherUser.username,
-          email: teacherUser.email,
-          profile_photo: teacherUser.profile_photo
-        };
-      }
+      teachers = ((teacherUsers ?? []) as TeacherUserRow[])
+        .map((u) => ({
+          id: u.id,
+          name: u.name,
+          username: u.username,
+          email: u.email,
+          profile_photo: u.profile_photo,
+          is_lead: isLeadMap.get(u.id) ?? false
+        }))
+        .sort((a, b) => (b.is_lead ? 1 : 0) - (a.is_lead ? 1 : 0) || a.name.localeCompare(b.name));
     }
 
     const { data: batchStudents, error: batchStudentsErr } = await supabase
@@ -232,7 +252,7 @@ export const batchDetails = async (req: Request, res: Response): Promise<void> =
         end_date: batch.end_date,
         created_at: batch.created_at,
         institution_name,
-        teacher,
+        teachers,
         student_count: students.length,
         students
       }

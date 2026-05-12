@@ -6,10 +6,21 @@ type BatchRow = {
   tution_id: string;
   name: string;
   code: string;
-  teacher_id: string | null;
   start_date: string;
   end_date: string | null;
   created_at: string;
+};
+
+type BatchTeacherLink = {
+  batch_id: string;
+  teacher_user_id: string;
+  is_lead: boolean;
+};
+
+type TeacherUser = {
+  id: string;
+  name: string;
+  email: string | null;
 };
 
 export const listBatches = async (req: Request, res: Response): Promise<void> => {
@@ -27,7 +38,7 @@ export const listBatches = async (req: Request, res: Response): Promise<void> =>
 
     const { data: batches, error: batchesErr } = await supabase
       .from('batches')
-      .select('id, tution_id, name, code, teacher_id, start_date, end_date, created_at')
+      .select('id, tution_id, name, code, start_date, end_date, created_at')
       .eq('tution_id', tution_id)
       .order('created_at', { ascending: false });
 
@@ -42,32 +53,50 @@ export const listBatches = async (req: Request, res: Response): Promise<void> =>
 
     // student counts per batch
     const countsMap: Record<string, number> = {};
+    // teacher links keyed by batch_id
+    const teacherLinksByBatch = new Map<string, BatchTeacherLink[]>();
+    const allTeacherIds = new Set<string>();
+
     if (batchIds.length > 0) {
-      const { data: batchStudents, error: bsErr } = await supabase
-        .from('batch_students')
-        .select('batch_id')
-        .in('batch_id', batchIds);
+      const [{ data: batchStudents, error: bsErr }, { data: batchTeachers, error: btErr }] = await Promise.all([
+        supabase.from('batch_students').select('batch_id').in('batch_id', batchIds),
+        supabase
+          .from('batch_teachers')
+          .select('batch_id, teacher_user_id, is_lead')
+          .in('batch_id', batchIds)
+      ]);
 
       if (bsErr) {
         console.error('listBatches: batch_students lookup failed:', bsErr);
         res.status(500).json({ msg: 'Server error' });
         return;
       }
+      if (btErr) {
+        console.error('listBatches: batch_teachers lookup failed:', btErr);
+        res.status(500).json({ msg: 'Server error' });
+        return;
+      }
 
       for (const row of batchStudents ?? []) {
-        const id = (row as any).batch_id as string;
+        const id = (row as { batch_id: string }).batch_id;
         countsMap[id] = (countsMap[id] ?? 0) + 1;
+      }
+
+      for (const row of (batchTeachers ?? []) as BatchTeacherLink[]) {
+        const list = teacherLinksByBatch.get(row.batch_id) ?? [];
+        list.push(row);
+        teacherLinksByBatch.set(row.batch_id, list);
+        allTeacherIds.add(row.teacher_user_id);
       }
     }
 
     // teacher info map
-    const teacherIds = Array.from(new Set(batchRows.map((b) => b.teacher_id).filter(Boolean) as string[]));
-    const teachersMap: Record<string, { id: string; name: string | null; email: string | null }> = {};
-    if (teacherIds.length > 0) {
+    const teachersMap: Record<string, TeacherUser> = {};
+    if (allTeacherIds.size > 0) {
       const { data: teachers, error: teacherErr } = await supabase
         .from('users')
         .select('id, name, email')
-        .in('id', teacherIds);
+        .in('id', Array.from(allTeacherIds));
 
       if (teacherErr) {
         console.error('listBatches: teacher lookup failed:', teacherErr);
@@ -75,8 +104,8 @@ export const listBatches = async (req: Request, res: Response): Promise<void> =>
         return;
       }
 
-      for (const t of teachers ?? []) {
-        teachersMap[(t as any).id] = { id: (t as any).id, name: (t as any).name ?? null, email: (t as any).email ?? null };
+      for (const t of (teachers ?? []) as TeacherUser[]) {
+        teachersMap[t.id] = { id: t.id, name: t.name ?? null, email: t.email ?? null };
       }
     }
 
@@ -93,18 +122,29 @@ export const listBatches = async (req: Request, res: Response): Promise<void> =>
       res.status(500).json({ msg: 'Server error' });
       return;
     }
-    if (tutionRow) institutionName = (tutionRow as any).name ?? null;
+    if (tutionRow) institutionName = (tutionRow as { name: string | null }).name ?? null;
 
-    const out = batchRows.map((b) => ({
-      id: b.id,
-      name: b.name,
-      code: b.code,
-      start_date: b.start_date,
-      end_date: b.end_date,
-      student_count: countsMap[b.id] ?? 0,
-      teacher: b.teacher_id ? teachersMap[b.teacher_id] ?? null : null,
-      institution_name: institutionName
-    }));
+    const out = batchRows.map((b) => {
+      const links = teacherLinksByBatch.get(b.id) ?? [];
+      const teachers = links
+        .map((l) => {
+          const u = teachersMap[l.teacher_user_id];
+          return u ? { ...u, is_lead: l.is_lead } : null;
+        })
+        .filter((t): t is TeacherUser & { is_lead: boolean } => t !== null)
+        .sort((a, b) => (b.is_lead ? 1 : 0) - (a.is_lead ? 1 : 0) || (a.name ?? '').localeCompare(b.name ?? ''));
+
+      return {
+        id: b.id,
+        name: b.name,
+        code: b.code,
+        start_date: b.start_date,
+        end_date: b.end_date,
+        student_count: countsMap[b.id] ?? 0,
+        teachers,
+        institution_name: institutionName
+      };
+    });
 
     res.status(200).json({ batches: out });
   } catch (err) {
