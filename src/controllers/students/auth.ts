@@ -71,18 +71,28 @@ export const studentLogin = async (req: Request, res: Response): Promise<void> =
     // ── Determine if identifier is email or username ─────────────────────────
     const isEmail = identifier.includes('@');
 
-    // ── Fetch user from DB ───────────────────────────────────────────────────
+    // ── Fetch user + embedded tution branding in one round-trip ──────────────
+    // The FK users.tution_id -> tutions.id lets us pull the tution's name,
+    // slug and logo_url here without a second query.
     let query = supabase
       .from('users')
       .select(
-        'id, tution_id, name, username, email, password_hash, profile_photo, role, email_verified, created_at, updated_at'
+        `
+          id, tution_id, name, username, email, password_hash, profile_photo,
+          role, email_verified, created_at, updated_at,
+          tutions:tution_id ( id, name, slug, logo_url )
+        `
       );
 
     query = isEmail
       ? query.eq('email', identifier)
       : query.eq('username', identifier);
 
-    const { data: user, error: fetchErr } = await query.maybeSingle<User>();
+    const { data: user, error: fetchErr } = await query.maybeSingle<
+      User & {
+        tutions: { id: string; name: string; slug: string; logo_url: string | null } | null;
+      }
+    >();
 
     if (fetchErr) {
       console.error('studentLogin: user fetch failed:', fetchErr);
@@ -112,13 +122,22 @@ export const studentLogin = async (req: Request, res: Response): Promise<void> =
     // ── Sign JWT ─────────────────────────────────────────────────────────────
     const token = signToken(user);
 
-    // Strip password_hash before sending the user object
-    const { password_hash: _omit, ...safeUser } = user;
+    // Strip password_hash and the embedded tutions key before sending the user.
+    const { password_hash: _omit, tutions: tutionEmbed, ...safeUser } = user;
     const userResponse: UserResponse = safeUser as UserResponse;
+
+    console.log('[studentLogin] tution embed:', tutionEmbed);
 
     res.status(200).json({
       token,
-      user: userResponse
+      user: userResponse,
+      // Flat fields — mirror tution_id, easy to read on the client.
+      tution_id: user.tution_id,
+      tution_name: tutionEmbed?.name ?? null,
+      tution_slug: tutionEmbed?.slug ?? null,
+      logo_url: tutionEmbed?.logo_url ?? null,
+      // Nested form, in case the frontend prefers it grouped.
+      tution: tutionEmbed ?? null
     });
   } catch (err) {
     console.error('studentLogin error:', err);
