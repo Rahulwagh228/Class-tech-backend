@@ -20,8 +20,16 @@ const envSchema = z.object({
   EMAIL_FROM: z.string().min(1).optional(),
   APP_URL: z.string().url().default('http://localhost:3000'),
 
-  // Optional - only needed if you switch back to direct Postgres
+  // Local Postgres connection string (your localhost pgAdmin instance).
+  // Kept around so the connectpsql.ts code stays runnable against a local DB
+  // when commented back in, but not currently used.
   DATABASE_URL: z.string().url().optional(),
+
+  // Supabase Postgres connection string (direct DB access via the `pg` driver,
+  // bypassing the Supabase JS client). Get this from:
+  //   Supabase Dashboard -> Project Settings -> Database -> Connection string -> URI
+  // Prefer the Transaction pooler (port 6543) for serverless deployments.
+  SUPABASE_DB_URL: z.string().url().optional(),
 
   // ---------------------------------------------------------------------------
   // Supabase  (accept both bare and NEXT_PUBLIC_-prefixed names)
@@ -49,6 +57,8 @@ console.log('[env] loaded', {
   has_JWT_SECRET: !!env.JWT_SECRET,
   has_RESEND_API_KEY: !!env.RESEND_API_KEY,
   has_EMAIL_FROM: !!env.EMAIL_FROM,
+  has_DATABASE_URL: !!env.DATABASE_URL,
+  has_SUPABASE_DB_URL: !!env.SUPABASE_DB_URL,
   has_SUPABASE_URL: !!(env.SUPABASE_URL ?? env.NEXT_PUBLIC_SUPABASE_URL),
   has_SUPABASE_KEY: !!(
     env.SUPABASE_SERVICE_ROLE_KEY ??
