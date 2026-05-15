@@ -311,10 +311,30 @@ async function performLogin(
       return;
     }
 
+    // -------------------------------------------------------------------------
+    // Fetch the tution's branding (name, slug, logo_url) so the frontend can
+    // render the institution's logo on every screen straight after login,
+    // without a separate round trip. Failure to fetch it is non-fatal - we
+    // still complete the login.
+    // -------------------------------------------------------------------------
+    const { data: tutionRow, error: tutionErr } = await supabase
+      .from('tutions')
+      .select('id, name, slug, logo_url')
+      .eq('id', user.tution_id)
+      .maybeSingle<{ id: string; name: string; slug: string; logo_url: string | null }>();
+
+    if (tutionErr) {
+      console.warn('login: tution lookup failed (continuing anyway):', tutionErr);
+    }
+
     const { password_hash: _omit, ...safe } = user;
     const token = signToken(user);
 
-    res.json({ token, user: safe });
+    res.json({
+      token,
+      user: safe,
+      tution: tutionRow ?? null
+    });
   } catch (err) {
     console.error('login error:', err);
     res.status(500).json({ msg: 'Server error' });
