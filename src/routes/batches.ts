@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { createBatch } from '../controllers/batches/create.js';
 import { batchDetails } from '../controllers/batches/details.js';
 import { listBatches } from '../controllers/batches/list.js';
+import { addStudentsToBatch } from '../controllers/batches/students/add.js';
 import { assignBatchTeachers } from '../controllers/batches/teachers/assign.js';
 import { listBatchTeachers } from '../controllers/batches/teachers/list.js';
 import { unassignBatchTeacher } from '../controllers/batches/teachers/unassign.js';
@@ -49,4 +50,19 @@ batchesRouter.delete(
   requireAuth,
   requireRole('admin'),
   unassignBatchTeacher
+);
+
+// =============================================================================
+// Student enrollment on a batch
+// =============================================================================
+
+// POST /api/v1/batches/:batchId/students
+//   body: { student_ids: ["uuid", ...] }
+//   admin OR a teacher assigned to this batch may add students
+batchesRouter.post(
+  '/:batchId/students',
+  requireAuth,
+  requireRole('admin', 'teacher'),
+  requireBatchAccess,
+  addStudentsToBatch
 );
