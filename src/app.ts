@@ -8,6 +8,7 @@ import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { attendanceRouter } from './routes/attendance.js';
 import { authRouter } from './routes/auth.js';
 import { batchesRouter } from './routes/batches.js';
+import { dashboardRouter } from './routes/dashboard.js';
 import { importRouter } from './routes/import.js';
 import { parentsRouter } from './routes/parents.js';
 import { studentsRouter } from './routes/students.js';
@@ -109,6 +110,7 @@ app.get('/_diag', (_request, response) => {
 app.use('/api/v1/auth', authRouter);
 app.use('/api/v1/attendance', attendanceRouter);
 app.use('/api/v1/batches', batchesRouter);
+app.use('/api/v1/dashboard', dashboardRouter);
 app.use('/api/v1', importRouter);
 app.use('/api/v1/parents', parentsRouter);
 app.use('/api/v1/students', studentsRouter);
