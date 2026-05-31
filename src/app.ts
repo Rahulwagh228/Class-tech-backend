@@ -31,7 +31,9 @@ const allowedOrigins = new Set<string>([
   'http://localhost:3001',
   'http://localhost:5173',
   // 'http://10.138.76.189:5000',               // Vite default
-  'https://class-tech-sooty.vercel.app'  // production frontend
+  // production frontend
+  'https://class-tech-sooty.vercel.app',
+  'https://classsly.in',
 ]);
 
 // Match every Vercel preview URL for the frontend project so PR/branch deploys work.
