@@ -15,8 +15,11 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@huggingface/inference": "^4.13.19",
     "@langchain/community": "^1.1.29",
+    "@langchain/core": "^1.1.49",
     "@langchain/groq": "^1.2.1",
+    "@langchain/textsplitters": "^1.0.1",
     "@supabase/supabase-js": "^2.108.2",
     "axios": "^1.18.0",
     "bcryptjs": "^3.0.3",
@@ -50,7 +53,7 @@
     "eslint-config-prettier": "^10.1.8",
     "prettier": "^3.6.2",
     "supertest": "^7.1.4",
-    "tsx": "^4.20.3",
+    "tsx": "^4.22.4",
     "typescript": "^5.9.2",
     "vitest": "^3.2.4"
   }
