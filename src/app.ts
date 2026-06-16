@@ -13,6 +13,7 @@ import { importRouter } from './routes/import.js';
 import { parentsRouter } from './routes/parents.js';
 import { studentsRouter } from './routes/students.js';
 import { teachersRouter } from './routes/teachers.js';
+import  KobiRouter  from './routes/kobi.js';
 
 const logger = pino({ level: env.LOG_LEVEL });
 
@@ -83,9 +84,9 @@ app.get('/', (_request, response) => {
 });
 
 // Always-available health probe - never touches DB or external services.
-app.get('/health', (_request, response) => {
-  response.json({ status: 'ok', timestamp: new Date().toISOString() });
-});
+// app.get('/health', (_request, response) => {
+//   response.json({ status: 'ok', timestamp: new Date().toISOString() });
+// });
 
 // Diagnostic - shows which env vars Vercel actually has (booleans only,
 // never the values). Use this to debug FUNCTION_INVOCATION_FAILED.
@@ -117,6 +118,7 @@ app.use('/api/v1', importRouter);
 app.use('/api/v1/parents', parentsRouter);
 app.use('/api/v1/students', studentsRouter);
 app.use('/api/v1/teachers', teachersRouter);
+app.use('/kobi', KobiRouter);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
