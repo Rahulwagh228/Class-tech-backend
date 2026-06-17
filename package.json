@@ -15,6 +15,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@huggingface/inference": "^4.13.19",
     "@langchain/community": "^1.1.29",
     "@supabase/supabase-js": "^2.105.1",
     "bcryptjs": "^3.0.3",
