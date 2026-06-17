@@ -39,7 +39,7 @@ const allowedOrigins = new Set<string>([
 
 // Match every Vercel preview URL for the frontend project so PR/branch deploys work.
 const allowedOriginPatterns: RegExp[] = [
-  /^https:\/\/class-tech-sooty(-[a-z0-9-]+)?\.vercel\.app$/
+  /^https:\/\/classsly(-[a-z0-9-]+)?\.in\/$/
 ];
 
 app.use(
