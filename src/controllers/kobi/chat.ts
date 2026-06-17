@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { createClient } from "@supabase/supabase-js";
 import { HuggingFaceInferenceEmbeddings } from "@langchain/community/embeddings/hf";
-import Groq from "groq-sdk";
+import { Groq } from "groq-sdk";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
