@@ -19,13 +19,7 @@ const logger = pino({ level: env.LOG_LEVEL });
 
 export const app = express();
 
-// =============================================================================
-// CORS
-// -----------------------------------------------------------------------------
-// The browser's Origin header is ALWAYS `<scheme>://<host>[:<port>]` -
-// no trailing slash, no path. Entries here must match exactly. Use a regex
-// for Vercel preview deployments, which get unique per-branch URLs.
-// =============================================================================
+
 const allowedOrigins = new Set<string>([
   env.APP_URL,                           // whatever you set in .env (defaults to http://localhost:3000)
   'http://localhost:3000',
@@ -123,7 +117,4 @@ app.use('/kobi', KobiRouter);
 app.use(notFoundHandler);
 app.use(errorHandler);
 
-// Vercel's @vercel/node runtime requires `export default <handler>`.
-// An Express app IS a request handler, so we re-export it as default.
-// This lets ANY entry point (api/index.ts OR src/app.ts itself) work.
 export default app;
