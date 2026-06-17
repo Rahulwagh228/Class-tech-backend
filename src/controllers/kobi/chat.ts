@@ -10,7 +10,7 @@ const supabase = createClient(
 
 const embeddings = new HuggingFaceInferenceEmbeddings({
   apiKey: process.env.HUGGINGFACE_API_KEY!,
-  model: "llama-3.3-70b-versatile", // ✅ matches what you used for ingestion
+  model: "sentence-transformers/all-MiniLM-L6-v2", // ✅ matches what you used for ingestion
 });
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY! });
 
@@ -24,9 +24,11 @@ export async function chatHandler(req: Request, res: Response) {
     // 2. Similarity search in pgvector
     const { data: docs, error } = await supabase.rpc("match_documents", {
       query_embedding: queryEmbedding,
-      match_threshold: 0.4,
+      match_threshold: 0.05,
       match_count: 5,
     });
+
+    console.log(docs, "docssssssssssssss")
 
     if (error) return res.status(500).json({ error: error.message });
 
@@ -53,6 +55,7 @@ ${context}`,
     });
 
     const answer = completion.choices[0].message.content;
+    console.log(answer, "answer")
     return res.status(200).json({ answer });
   } catch (error: any) {
     return res.status(500).json({ error: error.message });
