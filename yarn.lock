@@ -2,6 +2,11 @@
 # yarn lockfile v1
 
 
+"@cfworker/json-schema@^4.0.2":
+  version "4.1.1"
+  resolved "https://registry.yarnpkg.com/@cfworker/json-schema/-/json-schema-4.1.1.tgz#4a2a3947ee9fa7b7c24be981422831b8674c3be6"
+  integrity sha512-gAmrUZSGtKc3AiBL71iNWxDsyUC5uMaKKGdvzYsBoTW/xi42JQHl7eKV2OYzCUqvc+D2RCcf7EXY2iCyFIk6og==
+
 "@esbuild/aix-ppc64@0.27.7":
   version "0.27.7"
   resolved "https://registry.yarnpkg.com/@esbuild/aix-ppc64/-/aix-ppc64-0.27.7.tgz#82b74f92aa78d720b714162939fb248c90addf53"
@@ -402,7 +407,7 @@
 
 "@langchain/community@^1.1.29":
   version "1.1.29"
-  resolved "https://registry.npmjs.org/@langchain/community/-/community-1.1.29.tgz"
+  resolved "https://registry.yarnpkg.com/@langchain/community/-/community-1.1.29.tgz#b4570301b7080e51594eaaa48d3465ed465d0220"
   integrity sha512-eJbE0IARueEg+Lljk7SIGGeiSnu5u0mcT0MPIF7UG6jYPNXOpSebwiXsS3aIKOyJZSj0DlmBPv7q0hkLrxDtHA==
   dependencies:
     "@langchain/classic" "^1.0.27"
@@ -413,6 +418,19 @@
     langsmith ">=0.4.0 <1.0.0"
     math-expression-evaluator "^2.0.0"
     uuid "^14.0.0"
+    zod "^3.25.76 || ^4"
+
+"@langchain/core@^1.1.49":
+  version "1.1.49"
+  resolved "https://registry.yarnpkg.com/@langchain/core/-/core-1.1.49.tgz#2e334c843961e9bfc52f3fcff19247602e0be866"
+  integrity sha512-7wkN3Qv/qZqsY0p3h48CNu6E6y5GMYatYxj+JrX4uVNBiqIVQm1Z528QrmayJWVW9SQTQicqRNoyTCzl+K9F8Q==
+  dependencies:
+    "@cfworker/json-schema" "^4.0.2"
+    "@standard-schema/spec" "^1.1.0"
+    js-tiktoken "^1.0.12"
+    langsmith ">=0.5.0 <1.0.0"
+    mustache "^4.2.0"
+    p-queue "^6.6.2"
     zod "^3.25.76 || ^4"
 
 "@langchain/openai@1.4.7", "@langchain/openai@^1.4.1":
@@ -577,6 +595,11 @@
   version "1.0.1"
   resolved "https://registry.npmjs.org/@stablelib/base64/-/base64-1.0.1.tgz"
   integrity sha512-1bnPQqSxSuc3Ii6MhBysoWCg58j97aUjuCSZrGSmDxNqtytIi0k8utUenAwTZN4V5mXXYGsVUI9zeBqy+jBOSQ==
+
+"@standard-schema/spec@^1.1.0":
+  version "1.1.0"
+  resolved "https://registry.yarnpkg.com/@standard-schema/spec/-/spec-1.1.0.tgz#a79b55dbaf8604812f52d140b2c9ab41bc150bb8"
+  integrity sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==
 
 "@supabase/auth-js@2.108.2":
   version "2.108.2"
@@ -1945,9 +1968,9 @@ keyv@^4.5.4:
   dependencies:
     json-buffer "3.0.1"
 
-"langsmith@>=0.4.0 <1.0.0":
+"langsmith@>=0.4.0 <1.0.0", "langsmith@>=0.5.0 <1.0.0":
   version "0.7.10"
-  resolved "https://registry.npmjs.org/langsmith/-/langsmith-0.7.10.tgz"
+  resolved "https://registry.yarnpkg.com/langsmith/-/langsmith-0.7.10.tgz#1c2c7c6e62e2fa75c5cda3200824d9ecf1b71e4a"
   integrity sha512-3EjJx9zGMzqF60eT9JADHF+Hn/T5ayTgEVp4d3M5yvJIJi3q6seX0p5jT8ecBCWBi1kIvvssWrcDxfwgSier7Q==
   dependencies:
     p-queue "6.6.2"
@@ -2112,6 +2135,11 @@ multer@^2.1.1:
     concat-stream "^2.0.0"
     type-is "^1.6.18"
 
+mustache@^4.2.0:
+  version "4.2.0"
+  resolved "https://registry.yarnpkg.com/mustache/-/mustache-4.2.0.tgz#e5892324d60a12ec9c2a73359edca52972bf6f64"
+  integrity sha512-71ippSywq5Yb7/tVYyGbkBggbU8H3u5Rz56fH60jGFgr8uHwxs+aSKeqmluIVzM0m0kB7xQjKS6qPfd0b2ZoqQ==
+
 nanoid@^3.3.12:
   version "3.3.12"
   resolved "https://registry.npmjs.org/nanoid/-/nanoid-3.3.12.tgz"
@@ -2202,7 +2230,7 @@ p-locate@^5.0.0:
   dependencies:
     p-limit "^3.0.2"
 
-p-queue@6.6.2:
+p-queue@6.6.2, p-queue@^6.6.2:
   version "6.6.2"
   resolved "https://registry.npmjs.org/p-queue/-/p-queue-6.6.2.tgz"
   integrity sha512-RwFpb72c/BhQLEXIZ5K2e+AhgNVmIejGlTgiB9MzZ0e93GRvqZ7uSi0dvRF7/XIXDeNkra2fNHBxTyPDGySpjQ==
