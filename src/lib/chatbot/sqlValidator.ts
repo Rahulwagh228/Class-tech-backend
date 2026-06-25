@@ -1,5 +1,6 @@
-import { Parser } from 'node-sql-parser'
+import sqlParser from 'node-sql-parser'
 
+const { Parser } = sqlParser as unknown as { Parser: new () => { astify: (sql: string, opts?: unknown) => unknown } }
 const parser = new Parser()
 const PG_OPTS = { database: 'PostgreSQL' as const }
 

@@ -4,10 +4,10 @@ let readonlyClient: SupabaseClient | null = null
 
 function getClient(): SupabaseClient {
   if (!readonlyClient) {
-    const url = process.env.SUPABASE_URL
-    const key = process.env.SUPABASE_READONLY_KEY
+    const url = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL
+    const key = process.env.BUNNY_BOT_SECRET
     if (!url || !key) {
-      throw new Error('SUPABASE_URL and SUPABASE_READONLY_KEY must be set')
+      throw new Error('SUPABASE_URL and BUNNY_BOT_SECRET must be set')
     }
     readonlyClient = createClient(url, key, {
       auth: { persistSession: false, autoRefreshToken: false },

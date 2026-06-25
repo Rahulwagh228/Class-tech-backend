@@ -1,6 +1,6 @@
 import { Groq } from 'groq-sdk'
 
-const INTENT_MODEL = 'llama3-8b-8192'
+const INTENT_MODEL = 'llama-3.1-8b-instant'
 
 let groqClient: Groq | null = null
 function getGroq(): Groq {
