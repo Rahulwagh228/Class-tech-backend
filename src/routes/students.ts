@@ -27,5 +27,5 @@ studentsRouter.post(
 studentsRouter.post('/create', requireAuth, requireRole('admin', 'teacher'), createStudent);
 
 // GET /api/v1/students/:studentId — full profile (users + students joined)
-studentsRouter.get('/:studentId', requireAuth, requireRole('admin', 'teacher'), studentDetails);
+studentsRouter.get('/:studentId', requireAuth, requireRole('admin', 'teacher', 'student'), studentDetails);
 
