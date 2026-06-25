@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import supabase from '../../config/connectSupabase.js';
+import pool from '../../config/connectpsql.js';
 import { daysBetween, isIsoDate } from '../../lib/dates.js';
 
 const MAX_RANGE_DAYS = 90;
@@ -17,16 +17,12 @@ interface AttendanceRow {
   updated_at: string;
 }
 
-interface StudentUserRow {
-  id: string;
-  name: string;
-  username: string;
-  profile_photo: string | null;
-}
-
-interface StudentProfileRow {
-  user_id: string;
-  enrollment_number: string;
+interface AttendanceResultRow extends AttendanceRow {
+  student_user_id: string | null;
+  student_name: string | null;
+  student_username: string | null;
+  student_profile_photo: string | null;
+  student_enrollment_number: string | null;
 }
 
 // =============================================================================
@@ -37,6 +33,7 @@ interface StudentProfileRow {
 // requireBatchAccess has already validated tenant + ownership.
 // =============================================================================
 export const listAttendance = async (req: Request, res: Response): Promise<void> => {
+  console.log("api hittttttttttttttttttttttttttttttttttttttttttttttttttttttttttt")
   try {
     if (!req.user || !req.batch) {
       res.status(401).json({ msg: 'Authentication required' });
@@ -47,20 +44,16 @@ export const listAttendance = async (req: Request, res: Response): Promise<void>
     const batch_id = req.batch.id;
     const { date, from, to } = req.query as Record<string, string | undefined>;
 
-    let query = supabase
-      .from('attendance_records')
-      .select(
-        'id, batch_id, student_id, attendance_date, status, notes, marked_by, last_edited_by, created_at, updated_at'
-      )
-      .eq('tution_id', tution_id)
-      .eq('batch_id', batch_id);
+    const values: string[] = [tution_id, batch_id];
+    const whereClauses = ['ar.tution_id = $1', 'ar.batch_id = $2'];
 
     if (date) {
       if (!isIsoDate(date)) {
         res.status(400).json({ msg: 'date must be YYYY-MM-DD' });
         return;
       }
-      query = query.eq('attendance_date', date);
+      values.push(date);
+      whereClauses.push(`ar.attendance_date = $${values.length}`);
     } else if (from || to) {
       if (!from || !to) {
         res.status(400).json({ msg: 'from and to must both be provided' });
@@ -79,65 +72,59 @@ export const listAttendance = async (req: Request, res: Response): Promise<void>
         res.status(400).json({ msg: `range exceeds max of ${MAX_RANGE_DAYS} days` });
         return;
       }
-      query = query.gte('attendance_date', from).lte('attendance_date', to);
+      values.push(from);
+      whereClauses.push(`ar.attendance_date >= $${values.length}`);
+      values.push(to);
+      whereClauses.push(`ar.attendance_date <= $${values.length}`);
     }
 
-    const { data: rows, error } = await query
-      .order('attendance_date', { ascending: false })
-      .order('student_id', { ascending: true });
+    const result = await pool.query<AttendanceResultRow>(
+      `SELECT
+          ar.id,
+          ar.batch_id,
+          ar.student_id,
+          ar.attendance_date,
+          ar.status,
+          ar.notes,
+          ar.marked_by,
+          ar.last_edited_by,
+          ar.created_at,
+          ar.updated_at,
+          u.id            AS student_user_id,
+          u.name          AS student_name,
+          u.username      AS student_username,
+          u.profile_photo AS student_profile_photo,
+          s.enrollment_number AS student_enrollment_number
+         FROM attendance_records ar
+         LEFT JOIN users u
+           ON u.id = ar.student_id
+          AND u.tution_id = ar.tution_id
+         LEFT JOIN students s
+           ON s.user_id = ar.student_id
+          AND s.tution_id = ar.tution_id
+        WHERE ${whereClauses.join(' AND ')}
+        ORDER BY ar.attendance_date DESC, ar.student_id ASC`,
+      values
+    );
 
-    if (error) {
-      console.error('listAttendance: lookup failed:', error);
-      res.status(500).json({ msg: 'Server error' });
-      return;
-    }
-
-    const records = (rows ?? []) as AttendanceRow[];
-    const studentIds = Array.from(new Set(records.map((r) => r.student_id)));
-
-    const studentMap = new Map<string, { name: string; username: string; profile_photo: string | null }>();
-    const enrollmentMap = new Map<string, string>();
-
-    if (studentIds.length > 0) {
-      const [{ data: users, error: usersErr }, { data: profiles, error: profilesErr }] = await Promise.all([
-        supabase
-          .from('users')
-          .select('id, name, username, profile_photo')
-          .eq('tution_id', tution_id)
-          .in('id', studentIds),
-        supabase
-          .from('students')
-          .select('user_id, enrollment_number')
-          .eq('tution_id', tution_id)
-          .in('user_id', studentIds)
-      ]);
-
-      if (usersErr) {
-        console.error('listAttendance: users lookup failed:', usersErr);
-        res.status(500).json({ msg: 'Server error' });
-        return;
-      }
-      if (profilesErr) {
-        console.error('listAttendance: students lookup failed:', profilesErr);
-        res.status(500).json({ msg: 'Server error' });
-        return;
-      }
-
-      for (const u of (users ?? []) as StudentUserRow[]) {
-        studentMap.set(u.id, { name: u.name, username: u.username, profile_photo: u.profile_photo });
-      }
-      for (const p of (profiles ?? []) as StudentProfileRow[]) {
-        enrollmentMap.set(p.user_id, p.enrollment_number);
-      }
-    }
-
-    const out = records.map((r) => ({
-      ...r,
-      student: studentMap.get(r.student_id)
+    const out = result.rows.map((r) => ({
+      id: r.id,
+      batch_id: r.batch_id,
+      student_id: r.student_id,
+      attendance_date: r.attendance_date,
+      status: r.status,
+      notes: r.notes,
+      marked_by: r.marked_by,
+      last_edited_by: r.last_edited_by,
+      created_at: r.created_at,
+      updated_at: r.updated_at,
+      student: r.student_user_id
         ? {
             id: r.student_id,
-            ...studentMap.get(r.student_id)!,
-            enrollment_number: enrollmentMap.get(r.student_id) ?? null
+            name: r.student_name,
+            username: r.student_username,
+            profile_photo: r.student_profile_photo,
+            enrollment_number: r.student_enrollment_number
           }
         : null
     }));
