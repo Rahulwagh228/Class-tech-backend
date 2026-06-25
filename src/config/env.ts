@@ -38,7 +38,14 @@ const envSchema = z.object({
   NEXT_PUBLIC_SUPABASE_URL: z.string().url().optional(),
   SUPABASE_PUBLISHABLE_KEY: z.string().min(1).optional(),
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: z.string().min(1).optional(),
-  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional()
+  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
+
+  // ---------------------------------------------------------------------------
+  // Bunny chatbot readonly DB credentials (a dedicated Postgres role + password
+  // with SELECT-only grants). Used by src/lib/chatbot/dbExecutioner.ts.
+  // ---------------------------------------------------------------------------
+  BUNNY_BOT_DB_USER: z.string().min(1).optional(),
+  BUNNY_BOT_SECRET: z.string().min(1).optional()
 });
 
 const parsed = envSchema.safeParse(process.env);
