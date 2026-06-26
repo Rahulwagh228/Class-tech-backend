@@ -114,6 +114,7 @@ export async function bunnyChatHandler(req: Request, res: Response): Promise<voi
     if (rows.length > 0) {
       console.log('[bunny]   sample row:', JSON.stringify(rows[0]))
     }
+    console.log('[bunny]: step 6: query execution complete', JSON.stringify(rows))
 
     console.log('[bunny] step 7: generating natural-language answer...')
     const answerStart = Date.now()
