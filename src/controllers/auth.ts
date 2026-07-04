@@ -3,10 +3,7 @@ import bcrypt from 'bcryptjs';
 import jwt, { type SignOptions } from 'jsonwebtoken';
 import crypto from 'node:crypto';
 import { Resend } from 'resend';
-// Local Postgres client - kept for localhost testing. Uncomment imports below
-// AND swap each Supabase call back to its commented `pool.query` equivalent.
-// import pool from '../config/connectpsql.js';
-import supabase from '../config/connectSupabase.js';
+import pool from '../config/connectpsql.js';
 import { env } from '../config/env.js';
 import type {
   JwtPayload,
@@ -84,31 +81,16 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    // -------------------------------------------------------------------------
     // Uniqueness check: email is global, (tution_id, username) is per-tution
-    // -------------------------------------------------------------------------
-    // [pg version]
-    // const existing = await pool.query<Pick<User, 'email' | 'username' | 'tution_id'>>(
-    //   `SELECT email, username, tution_id
-    //    FROM users
-    //    WHERE email = $1
-    //       OR (tution_id = $2 AND username = $3)`,
-    //   [email, tution_id, username]
-    // );
-    // const conflictRow = existing.rows[0];
-
-    const { data: existingRows, error: existingErr } = await supabase
-      .from('users')
-      .select('email, username, tution_id')
-      .or(`email.eq.${email},and(tution_id.eq.${tution_id},username.eq.${username})`)
-      .limit(1);
-
-    if (existingErr) {
-      console.error('supabase existing-user check failed:', existingErr);
-      res.status(500).json({ msg: 'Server error' });
-      return;
-    }
-    const conflictRow = existingRows?.[0];
+    const existing = await pool.query<Pick<User, 'email' | 'username' | 'tution_id'>>(
+      `SELECT email, username, tution_id
+         FROM users
+        WHERE email = $1
+           OR (tution_id = $2 AND username = $3)
+        LIMIT 1`,
+      [email, tution_id, username]
+    );
+    const conflictRow = existing.rows[0];
 
     if (conflictRow) {
       res.status(409).json({
@@ -122,108 +104,92 @@ export const register = async (req: Request, res: Response): Promise<void> => {
 
     const password_hash = await bcrypt.hash(password, env.BCRYPT_ROUNDS);
 
-    // -------------------------------------------------------------------------
-    // Insert user
-    // -------------------------------------------------------------------------
-    // [pg version]
-    // const result = await pool.query<UserResponse>(
-    //   `INSERT INTO users
-    //      (tution_id, name, username, email, password_hash, profile_photo, role, email_verified, created_at, updated_at)
-    //    VALUES ($1, $2, $3, $4, $5, $6, $7, FALSE, NOW(), NOW())
-    //    RETURNING id, tution_id, name, username, email, profile_photo, role, email_verified, created_at, updated_at`,
-    //   [tution_id, name, username, email, password_hash, profile_photo ?? null, role]
-    // );
-    // const user = result.rows[0];
+    const insertUser = await pool.query<UserResponse>(
+      `INSERT INTO users
+         (tution_id, name, username, email, password_hash, profile_photo, role,
+          email_verified, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, FALSE, NOW(), NOW())
+       RETURNING id, tution_id, name, username, email, profile_photo, role,
+                 email_verified, created_at, updated_at`,
+      [tution_id, name, username, email, password_hash, profile_photo ?? null, role]
+    );
+    const user = insertUser.rows[0];
 
-    const { data: user, error: insertErr } = await supabase
-      .from('users')
-      .insert({
-        tution_id,
-        name,
-        username,
-        email,
-        password_hash,
-        profile_photo: profile_photo ?? null,
-        role,
-        email_verified: false
-      })
-      .select(
-        'id, tution_id, name, username, email, profile_photo, role, email_verified, created_at, updated_at'
-      )
-      .single<UserResponse>();
-
-    if (insertErr || !user) {
-      console.error('supabase insert user failed:', insertErr);
+    if (!user) {
       res.status(500).json({ msg: 'Server error' });
       return;
     }
 
-    // -------------------------------------------------------------------------
     // Insert role-specific profile row. If this fails we delete the user row
     // we just created so we never end up with an orphaned auth account.
-    // -------------------------------------------------------------------------
     let profile: Student | Teacher | null = null;
 
     if (role === 'student' && studentInput) {
-      const { data, error } = await supabase
-        .from('students')
-        .insert({
-          user_id: user.id,
-          tution_id,
-          enrollment_number: studentInput.enrollment_number,
-          date_of_birth: studentInput.date_of_birth ?? null,
-          gender: studentInput.gender ?? null,
-          grade_level: studentInput.grade_level ?? null,
-          section: studentInput.section ?? null,
-          blood_group: studentInput.blood_group ?? null,
-          guardian_name: studentInput.guardian_name ?? null,
-          guardian_phone: studentInput.guardian_phone ?? null,
-          emergency_contact: studentInput.emergency_contact ?? null,
-          address: studentInput.address ?? null,
-          admission_date: studentInput.admission_date ?? null,
-          notes: studentInput.notes ?? null
-        })
-        .select('*')
-        .single<Student>();
-
-      if (error || !data) {
-        console.error('supabase insert student failed:', error);
-        await supabase.from('users').delete().eq('id', user.id);
-        res
-          .status(500)
-          .json({ msg: error?.message ?? 'Failed to create student profile' });
+      try {
+        const studentResult = await pool.query<Student>(
+          `INSERT INTO students
+             (user_id, tution_id, enrollment_number, date_of_birth, gender,
+              grade_level, section, blood_group, guardian_name, guardian_phone,
+              emergency_contact, address, admission_date, notes)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+           RETURNING *`,
+          [
+            user.id,
+            tution_id,
+            studentInput.enrollment_number,
+            studentInput.date_of_birth ?? null,
+            studentInput.gender ?? null,
+            studentInput.grade_level ?? null,
+            studentInput.section ?? null,
+            studentInput.blood_group ?? null,
+            studentInput.guardian_name ?? null,
+            studentInput.guardian_phone ?? null,
+            studentInput.emergency_contact ?? null,
+            studentInput.address ?? null,
+            studentInput.admission_date ?? null,
+            studentInput.notes ?? null
+          ]
+        );
+        profile = studentResult.rows[0] ?? null;
+        if (!profile) throw new Error('student row not returned');
+      } catch (err) {
+        console.error('insert student failed:', err);
+        await pool.query('DELETE FROM users WHERE id = $1', [user.id]);
+        res.status(500).json({ msg: 'Failed to create student profile' });
         return;
       }
-      profile = data;
     } else if (role === 'teacher' && teacherInput) {
-      const { data, error } = await supabase
-        .from('teachers')
-        .insert({
-          user_id: user.id,
-          tution_id,
-          employee_id: teacherInput.employee_id,
-          date_of_birth: teacherInput.date_of_birth ?? null,
-          gender: teacherInput.gender ?? null,
-          qualification: teacherInput.qualification ?? null,
-          specialization: teacherInput.specialization ?? null,
-          experience_years: teacherInput.experience_years ?? null,
-          joining_date: teacherInput.joining_date ?? null,
-          bio: teacherInput.bio ?? null,
-          phone: teacherInput.phone ?? null,
-          address: teacherInput.address ?? null
-        })
-        .select('*')
-        .single<Teacher>();
-
-      if (error || !data) {
-        console.error('supabase insert teacher failed:', error);
-        await supabase.from('users').delete().eq('id', user.id);
-        res
-          .status(500)
-          .json({ msg: error?.message ?? 'Failed to create teacher profile' });
+      try {
+        const teacherResult = await pool.query<Teacher>(
+          `INSERT INTO teachers
+             (user_id, tution_id, employee_id, date_of_birth, gender,
+              qualification, specialization, experience_years, joining_date,
+              bio, phone, address)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+           RETURNING *`,
+          [
+            user.id,
+            tution_id,
+            teacherInput.employee_id,
+            teacherInput.date_of_birth ?? null,
+            teacherInput.gender ?? null,
+            teacherInput.qualification ?? null,
+            teacherInput.specialization ?? null,
+            teacherInput.experience_years ?? null,
+            teacherInput.joining_date ?? null,
+            teacherInput.bio ?? null,
+            teacherInput.phone ?? null,
+            teacherInput.address ?? null
+          ]
+        );
+        profile = teacherResult.rows[0] ?? null;
+        if (!profile) throw new Error('teacher row not returned');
+      } catch (err) {
+        console.error('insert teacher failed:', err);
+        await pool.query('DELETE FROM users WHERE id = $1', [user.id]);
+        res.status(500).json({ msg: 'Failed to create teacher profile' });
         return;
       }
-      profile = data;
     }
 
     const token = signToken(user);
@@ -269,32 +235,15 @@ async function performLogin(
       return;
     }
 
-    // -------------------------------------------------------------------------
-    // Fetch user by email
-    // -------------------------------------------------------------------------
-    // [pg version]
-    // const result = await pool.query<User>(
-    //   `SELECT id, tution_id, name, username, email, password_hash,
-    //           profile_photo, role, email_verified, created_at
-    //    FROM users
-    //    WHERE email = $1`,
-    //   [email]
-    // );
-    // const user = result.rows[0];
+    const result = await pool.query<User>(
+      `SELECT id, tution_id, name, username, email, password_hash,
+              profile_photo, role, email_verified, created_at, updated_at
+         FROM users
+        WHERE email = $1`,
+      [email]
+    );
+    const user = result.rows[0];
 
-    const { data: user, error: fetchErr } = await supabase
-      .from('users')
-      .select(
-        'id, tution_id, name, username, email, password_hash, profile_photo, role, email_verified, created_at, updated_at'
-      )
-      .eq('email', email)
-      .maybeSingle<User>();
-
-    if (fetchErr) {
-      console.error('supabase fetch user failed:', fetchErr);
-      res.status(500).json({ msg: 'Server error' });
-      return;
-    }
     if (!user) {
       res.status(401).json({ msg: 'user not found' });
       return;
@@ -311,20 +260,31 @@ async function performLogin(
       return;
     }
 
-    // -------------------------------------------------------------------------
     // Fetch the tution's branding (name, slug, logo_url) so the frontend can
     // render the institution's logo on every screen straight after login,
     // without a separate round trip. Failure to fetch it is non-fatal - we
     // still complete the login.
-    // -------------------------------------------------------------------------
-    const { data: tutionRow, error: tutionErr } = await supabase
-      .from('tutions')
-      .select('id, name, slug, logo_url')
-      .eq('id', user.tution_id)
-      .maybeSingle<{ id: string; name: string; slug: string; logo_url: string | null }>();
-
-    if (tutionErr) {
-      console.warn('login: tution lookup failed (continuing anyway):', tutionErr);
+    let tutionRow: {
+      id: string;
+      name: string;
+      slug: string;
+      logo_url: string | null;
+    } | null = null;
+    try {
+      const tutionResult = await pool.query<{
+        id: string;
+        name: string;
+        slug: string;
+        logo_url: string | null;
+      }>(
+        `SELECT id, name, slug, logo_url
+           FROM tutions
+          WHERE id = $1`,
+        [user.tution_id]
+      );
+      tutionRow = tutionResult.rows[0] ?? null;
+    } catch (err) {
+      console.warn('login: tution lookup failed (continuing anyway):', err);
     }
 
     const { password_hash: _omit, ...safe } = user;
@@ -333,7 +293,7 @@ async function performLogin(
     res.json({
       token,
       user: safe,
-      tution: tutionRow ?? null
+      tution: tutionRow
     });
   } catch (err) {
     console.error('login error:', err);
@@ -358,38 +318,25 @@ export const sendEmailOtp = async (req: Request, res: Response): Promise<void> =
       return;
     }
 
-    const otp = crypto.randomInt(100_000, 999_999).toString();
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
-
-    // -------------------------------------------------------------------------
-    // Replace any existing OTP for this email, then insert the new one
-    // -------------------------------------------------------------------------
-    // [pg version]
-    // await pool.query('DELETE FROM email_otps WHERE email = $1', [email]);
-    // await pool.query(
-    //   `INSERT INTO email_otps (email, otp, expires_at)
-    //    VALUES ($1, $2, NOW() + INTERVAL '10 minutes')`,
-    //   [email, otp]
-    // );
-
-    const { error: deleteErr } = await supabase.from('email_otps').delete().eq('email', email);
-    if (deleteErr) {
-      console.error('supabase delete old OTP failed:', deleteErr);
-    }
-
-    const { error: insertErr } = await supabase
-      .from('email_otps')
-      .insert({ email, otp, expires_at: expiresAt });
-    if (insertErr) {
-      console.error('supabase insert OTP failed:', insertErr);
-      res.status(500).json({ msg: 'Failed to store OTP' });
+    if (!env.RESEND_API_KEY) {
+      res.status(500).json({ msg: 'Server misconfigured: RESEND_API_KEY is not set' });
       return;
     }
-
     if (!env.EMAIL_FROM) {
       res.status(500).json({ msg: 'Server misconfigured: EMAIL_FROM is not set' });
       return;
     }
+
+    const otp = crypto.randomInt(100_000, 999_999).toString();
+
+    // Replace any existing OTP for this email, then insert the new one.
+    await pool.query('DELETE FROM email_otps WHERE email = $1', [email]);
+    await pool.query(
+      `INSERT INTO email_otps (email, otp, expires_at)
+       VALUES ($1, $2, NOW() + INTERVAL '10 minutes')`,
+      [email, otp]
+    );
+
     const { error: mailErr } = await resend.emails.send({
       from: env.EMAIL_FROM,
       to: [email],
@@ -429,43 +376,27 @@ export const verifyEmailOtp = async (req: Request, res: Response): Promise<void>
       return;
     }
 
-    // -------------------------------------------------------------------------
-    // Fetch the latest unverified OTP for this email
-    // -------------------------------------------------------------------------
-    // [pg version]
-    // const result = await pool.query(
-    //   `SELECT id, otp, expires_at
-    //    FROM email_otps
-    //    WHERE email = $1 AND is_verified = FALSE
-    //    ORDER BY created_at DESC
-    //    LIMIT 1`,
-    //   [email]
-    // );
-    // const record = result.rows[0];
+    const result = await pool.query<{
+      id: string;
+      otp: string;
+      expires_at: string | Date;
+    }>(
+      `SELECT id, otp, expires_at
+         FROM email_otps
+        WHERE email = $1 AND is_verified = FALSE
+        ORDER BY created_at DESC
+        LIMIT 1`,
+      [email]
+    );
+    const record = result.rows[0];
 
-    const { data: record, error: fetchErr } = await supabase
-      .from('email_otps')
-      .select('id, otp, expires_at')
-      .eq('email', email)
-      .eq('is_verified', false)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (fetchErr) {
-      console.error('supabase fetch OTP failed:', fetchErr);
-      res.status(500).json({ msg: 'Server error' });
-      return;
-    }
     if (!record) {
       res.status(400).json({ msg: 'OTP not found. Please request a new one.' });
       return;
     }
 
     if (new Date() > new Date(record.expires_at)) {
-      // [pg version]
-      // await pool.query('DELETE FROM email_otps WHERE email = $1', [email]);
-      await supabase.from('email_otps').delete().eq('email', email);
+      await pool.query('DELETE FROM email_otps WHERE email = $1', [email]);
       res.status(400).json({ msg: 'OTP has expired. Please request a new one.' });
       return;
     }
@@ -474,32 +405,8 @@ export const verifyEmailOtp = async (req: Request, res: Response): Promise<void>
       return;
     }
 
-    // -------------------------------------------------------------------------
-    // Mark OTP verified + flip user.email_verified
-    // -------------------------------------------------------------------------
-    // [pg version]
-    // await pool.query('UPDATE email_otps SET is_verified = TRUE WHERE id = $1', [record.id]);
-    // await pool.query('UPDATE users SET email_verified = TRUE WHERE email = $1', [email]);
-
-    const { error: otpUpdateErr } = await supabase
-      .from('email_otps')
-      .update({ is_verified: true })
-      .eq('id', record.id);
-    if (otpUpdateErr) {
-      console.error('supabase update OTP failed:', otpUpdateErr);
-      res.status(500).json({ msg: 'Server error' });
-      return;
-    }
-
-    const { error: userUpdateErr } = await supabase
-      .from('users')
-      .update({ email_verified: true })
-      .eq('email', email);
-    if (userUpdateErr) {
-      console.error('supabase update user failed:', userUpdateErr);
-      res.status(500).json({ msg: 'Server error' });
-      return;
-    }
+    await pool.query('UPDATE email_otps SET is_verified = TRUE WHERE id = $1', [record.id]);
+    await pool.query('UPDATE users SET email_verified = TRUE WHERE email = $1', [email]);
 
     res.status(200).json({ msg: 'Email verified successfully' });
   } catch (err) {
@@ -518,52 +425,35 @@ export const me = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    // -------------------------------------------------------------------------
-    // [pg version]
-    // const result = await pool.query<UserResponse>(
-    //   `SELECT id, tution_id, name, username, email, profile_photo, role,
-    //           email_verified, created_at, updated_at
-    //    FROM users WHERE id = $1`,
-    //   [req.user.id]
-    // );
-    // const user = result.rows[0];
+    const result = await pool.query<UserResponse>(
+      `SELECT id, tution_id, name, username, email, profile_photo, role,
+              email_verified, created_at, updated_at
+         FROM users
+        WHERE id = $1`,
+      [req.user.id]
+    );
+    const user = result.rows[0];
 
-    const { data: user, error } = await supabase
-      .from('users')
-      .select(
-        'id, tution_id, name, username, email, profile_photo, role, email_verified, created_at, updated_at'
-      )
-      .eq('id', req.user.id)
-      .maybeSingle<UserResponse>();
-
-    if (error) {
-      console.error('supabase me fetch failed:', error);
-      res.status(500).json({ msg: 'Server error' });
-      return;
-    }
     if (!user) {
       res.status(404).json({ msg: 'User not found' });
       return;
     }
 
-    // Pull role-specific profile if applicable
     let student: Student | null = null;
     let teacher: Teacher | null = null;
 
     if (user.role === 'student') {
-      const { data } = await supabase
-        .from('students')
-        .select('*')
-        .eq('user_id', user.id)
-        .maybeSingle<Student>();
-      student = data;
+      const studentResult = await pool.query<Student>(
+        `SELECT * FROM students WHERE user_id = $1`,
+        [user.id]
+      );
+      student = studentResult.rows[0] ?? null;
     } else if (user.role === 'teacher') {
-      const { data } = await supabase
-        .from('teachers')
-        .select('*')
-        .eq('user_id', user.id)
-        .maybeSingle<Teacher>();
-      teacher = data;
+      const teacherResult = await pool.query<Teacher>(
+        `SELECT * FROM teachers WHERE user_id = $1`,
+        [user.id]
+      );
+      teacher = teacherResult.rows[0] ?? null;
     }
 
     res.json({
