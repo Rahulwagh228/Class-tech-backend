@@ -5,6 +5,7 @@ import { studentHeatmap } from '../controllers/attendance/studentHeatmap.js';
 import { studentAttendanceHistory } from '../controllers/attendance/studentHistory.js';
 import { studentExamMarks } from '../controllers/exams/marks/studentMarks.js';
 import { studentDetails } from '../controllers/students/details.js';
+import { updateOwnProfile } from '../controllers/students/update.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { fillSelfStudentId, requireStudentAccess } from '../middleware/studentAccess.js';
 
@@ -16,6 +17,7 @@ studentRouter.use(requireAuth);
 
 // ── /me — student's own data (JWT only, no :studentId needed) ───────────────
 studentRouter.get('/me', requireRole('student'), fillSelfStudentId, studentDetails);
+studentRouter.patch('/me', requireRole('student'), updateOwnProfile);
 studentRouter.get(
   '/attendance/me',
   requireRole('student'),
