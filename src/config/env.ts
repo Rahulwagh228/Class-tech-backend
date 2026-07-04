@@ -38,7 +38,15 @@ const envSchema = z.object({
   NEXT_PUBLIC_SUPABASE_URL: z.string().url().optional(),
   SUPABASE_PUBLISHABLE_KEY: z.string().min(1).optional(),
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: z.string().min(1).optional(),
-  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional()
+  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
+
+  // ---------------------------------------------------------------------------
+  // Cloudinary — used by /api/v1/uploads/cloudinary-signature to hand short-lived
+  // upload signatures to the browser so the API secret never leaves the server.
+  // ---------------------------------------------------------------------------
+  CLOUDINARY_CLOUD_NAME: z.string().min(1).optional(),
+  CLOUDINARY_API_KEY: z.string().min(1).optional(),
+  CLOUDINARY_API_SECRET: z.string().min(1).optional()
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -65,5 +73,8 @@ console.log('[env] loaded', {
     env.SUPABASE_PUBLISHABLE_KEY ??
     env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
   ),
-  has_SUPABASE_SERVICE_ROLE_KEY: !!env.SUPABASE_SERVICE_ROLE_KEY
+  has_SUPABASE_SERVICE_ROLE_KEY: !!env.SUPABASE_SERVICE_ROLE_KEY,
+  has_CLOUDINARY_CLOUD_NAME: !!env.CLOUDINARY_CLOUD_NAME,
+  has_CLOUDINARY_API_KEY: !!env.CLOUDINARY_API_KEY,
+  has_CLOUDINARY_API_SECRET: !!env.CLOUDINARY_API_SECRET
 });

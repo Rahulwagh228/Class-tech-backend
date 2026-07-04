@@ -10,6 +10,7 @@ import { authRouter } from './routes/auth.routes.js';
 import { parentRouter } from './routes/parent.routes.js';
 import { studentRouter } from './routes/student.routes.js';
 import { teacherRouter } from './routes/teacher.routes.js';
+import { uploadRouter } from './routes/upload.routes.js';
 import KobiRouter from './routes/kobi.js';
 
 const logger = pino({ level: env.LOG_LEVEL });
@@ -106,6 +107,7 @@ app.use('/api/v1/admin', adminRouter);
 app.use('/api/v1/teacher', teacherRouter);
 app.use('/api/v1/student', studentRouter);
 app.use('/api/v1/parent', parentRouter);
+app.use('/api/v1/uploads', uploadRouter);
 app.use('/kobi', KobiRouter);
 
 app.use(notFoundHandler);
