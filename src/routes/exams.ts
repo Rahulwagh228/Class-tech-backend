@@ -12,6 +12,30 @@ import { fillSelfStudentId, requireStudentAccess } from '../middleware/studentAc
 export const examsRouter = Router();
 
 // =============================================================================
+// Static / literal paths first — before any `/:examId` pattern.
+// Otherwise Express matches `/me` and `/students/...` against `/:examId` and
+// applies the wrong role check (admin/teacher only), returning 403 to students.
+// =============================================================================
+
+// GET /api/v1/exams/me   — student-only convenience, reuses studentExamMarks
+examsRouter.get(
+  '/me',
+  requireAuth,
+  requireRole('student'),
+  fillSelfStudentId,
+  studentExamMarks
+);
+
+// GET /api/v1/exams/students/:studentId
+examsRouter.get(
+  '/students/:studentId',
+  requireAuth,
+  requireRole('admin', 'student', 'parent'),
+  requireStudentAccess,
+  studentExamMarks
+);
+
+// =============================================================================
 // Exam header CRUD-ish — admin creates, admin + assigned teachers can view.
 // =============================================================================
 
@@ -20,15 +44,6 @@ examsRouter.post('/', requireAuth, requireRole('admin'), createExam);
 
 // GET  /api/v1/exams                — list exams (admin: all, teacher: their batches')
 examsRouter.get('/', requireAuth, requireRole('admin', 'teacher'), listExams);
-
-// GET  /api/v1/exams/:examId        — exam details (admin or assigned teacher)
-examsRouter.get(
-  '/:examId',
-  requireAuth,
-  requireRole('admin', 'teacher'),
-  requireExamAccess,
-  examDetails
-);
 
 // =============================================================================
 // Marks — teachers record, admin can also record/edit, teacher must be
@@ -53,19 +68,11 @@ examsRouter.get(
   listExamMarks
 );
 
-// =============================================================================
-// Student-facing read routes — student themselves, linked parent, or admin.
-// =============================================================================
-
-// GET /api/v1/exams/students/:studentId
+// GET  /api/v1/exams/:examId        — exam details (admin or assigned teacher)
 examsRouter.get(
-  '/students/:studentId',
+  '/:examId',
   requireAuth,
-  requireRole('admin', 'student', 'parent'),
-  requireStudentAccess,
-  studentExamMarks
-);
-
-// GET /api/v1/exams/me   — student-only convenience, reuses studentExamMarks
-examsRouter.get('/me', requireAuth, fillSelfStudentId, studentExamMarks,  requireRole('admin', 'student', 'parent'),
+  requireRole('admin', 'teacher'),
+  requireExamAccess,
+  examDetails
 );

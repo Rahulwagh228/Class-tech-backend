@@ -35,7 +35,7 @@ export const studentExamMarks = async (req: Request, res: Response): Promise<voi
     res.status(401).json({ msg: 'Authentication required' });
     return;
   }
-
+  console.log("studentExamMarks got hit")
   const studentId = req.params.studentId;
   if (!studentId) {
     res.status(400).json({ msg: 'studentId is required' });
