@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import {
+  changePassword,
   loginAsAdmin,
   loginAsParent,
   me,
@@ -26,3 +27,4 @@ authRouter.post('/verify-otp', verifyEmailOtp);
 
 // ── Session (protected) ─────────────────────────────────────────────────────
 authRouter.get('/me', requireAuth, me);
+authRouter.patch('/password', requireAuth, changePassword);
