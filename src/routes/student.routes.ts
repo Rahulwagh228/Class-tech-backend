@@ -6,6 +6,7 @@ import { studentAttendanceHistory } from '../controllers/attendance/studentHisto
 import { studentExamMarks } from '../controllers/exams/marks/studentMarks.js';
 import { studentDetails } from '../controllers/students/details.js';
 import { updateOwnProfile } from '../controllers/students/update.js';
+import { verifyEmailEdit } from '../controllers/students/updateEmail.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { fillSelfStudentId, requireStudentAccess } from '../middleware/studentAccess.js';
 
@@ -18,6 +19,7 @@ studentRouter.use(requireAuth);
 // ── /me — student's own data (JWT only, no :studentId needed) ───────────────
 studentRouter.get('/me', requireRole('student'), fillSelfStudentId, studentDetails);
 studentRouter.patch('/me', requireRole('student'), updateOwnProfile);
+studentRouter.patch('/me/email', requireRole('student'), verifyEmailEdit);
 studentRouter.get(
   '/attendance/me',
   requireRole('student'),
