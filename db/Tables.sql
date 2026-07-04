@@ -229,3 +229,100 @@ CREATE INDEX parent_students_student_idx ON parent_students (student_user_id);
 CREATE INDEX parent_students_tution_idx  ON parent_students (tution_id);
 
 
+-- =============================================================================
+-- 3.7 exams
+--   An exam is created by an admin for one or more batches and one or more
+--   subjects. Marks are recorded per (exam_subject, student) by teachers, and
+--   read by students/parents.
+--
+--   tables:
+--     exams           - the exam itself (header)
+--     exam_batches    - which batches sit for this exam (M:N)
+--     exam_subjects   - subjects/papers within the exam, each with max marks
+--     exam_marks      - per (exam_subject x student) marks row, idempotent upsert
+-- =============================================================================
+
+CREATE TABLE exams (
+  id            UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+  tution_id     UUID          NOT NULL REFERENCES tutions(id) ON DELETE CASCADE,
+
+  name          VARCHAR(120)  NOT NULL,
+  code          VARCHAR(60)   NOT NULL,
+  description   TEXT,
+
+  start_date    DATE          NOT NULL,
+  end_date      DATE,
+
+  created_by    UUID          NOT NULL REFERENCES users(id),
+  created_at    TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  updated_at    TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+
+  CONSTRAINT exams_code_unique UNIQUE (tution_id, code),
+  CONSTRAINT exams_date_order CHECK (end_date IS NULL OR end_date >= start_date)
+);
+CREATE INDEX exams_tution_idx ON exams (tution_id);
+
+
+-- Which batches sit for an exam. ON DELETE CASCADE so deleting an exam wipes
+-- its batch links automatically.
+CREATE TABLE exam_batches (
+  id           UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+  tution_id    UUID         NOT NULL REFERENCES tutions(id) ON DELETE CASCADE,
+  exam_id      UUID         NOT NULL REFERENCES exams(id)   ON DELETE CASCADE,
+  batch_id     UUID         NOT NULL REFERENCES batches(id) ON DELETE CASCADE,
+  created_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+
+  CONSTRAINT exam_batches_unique UNIQUE (exam_id, batch_id)
+);
+CREATE INDEX exam_batches_exam_idx   ON exam_batches (exam_id);
+CREATE INDEX exam_batches_batch_idx  ON exam_batches (batch_id);
+CREATE INDEX exam_batches_tution_idx ON exam_batches (tution_id);
+
+
+-- Subjects / papers under an exam. Each carries its own max marks, optional
+-- pass marks, and an optional date for the paper.
+CREATE TABLE exam_subjects (
+  id            UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+  tution_id     UUID          NOT NULL REFERENCES tutions(id) ON DELETE CASCADE,
+  exam_id       UUID          NOT NULL REFERENCES exams(id)   ON DELETE CASCADE,
+
+  subject       VARCHAR(120)  NOT NULL,
+  max_marks     NUMERIC(6,2)  NOT NULL CHECK (max_marks > 0),
+  pass_marks    NUMERIC(6,2)  CHECK (pass_marks IS NULL OR (pass_marks >= 0 AND pass_marks <= max_marks)),
+  exam_date     DATE,
+
+  created_at    TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+
+  CONSTRAINT exam_subjects_unique UNIQUE (exam_id, subject)
+);
+CREATE INDEX exam_subjects_exam_idx   ON exam_subjects (exam_id);
+CREATE INDEX exam_subjects_tution_idx ON exam_subjects (tution_id);
+
+
+-- Per-student marks for one (exam_subject). tution_id and exam_id are
+-- denormalized for fast tenant-scoped reads (mirrors attendance_records).
+CREATE TABLE exam_marks (
+  id                UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+  tution_id         UUID          NOT NULL REFERENCES tutions(id) ON DELETE CASCADE,
+  exam_id           UUID          NOT NULL REFERENCES exams(id)   ON DELETE CASCADE,
+  exam_subject_id   UUID          NOT NULL REFERENCES exam_subjects(id) ON DELETE CASCADE,
+  student_id        UUID          NOT NULL REFERENCES users(id)   ON DELETE CASCADE,
+
+  marks_obtained    NUMERIC(6,2)  NOT NULL CHECK (marks_obtained >= 0),
+  remarks           TEXT,
+  is_absent         BOOLEAN       NOT NULL DEFAULT FALSE,
+
+  recorded_by       UUID          NOT NULL REFERENCES users(id),
+  last_edited_by    UUID          REFERENCES users(id),
+
+  created_at        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  updated_at        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+
+  CONSTRAINT exam_marks_unique UNIQUE (exam_subject_id, student_id)
+);
+CREATE INDEX exam_marks_exam_idx       ON exam_marks (exam_id);
+CREATE INDEX exam_marks_student_idx    ON exam_marks (student_id);
+CREATE INDEX exam_marks_tution_idx     ON exam_marks (tution_id);
+CREATE INDEX exam_marks_subject_idx    ON exam_marks (exam_subject_id);
+
+
