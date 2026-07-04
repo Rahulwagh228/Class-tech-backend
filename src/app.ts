@@ -5,15 +5,13 @@ import type { NextFunction, Request, Response } from 'express';
 import { env } from './config/env.js';
 import { supabaseStatus } from './config/connectSupabase.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
-import { attendanceRouter } from './routes/attendance.js';
-import { authRouter } from './routes/auth.js';
-import { batchesRouter } from './routes/batches.js';
-import { dashboardRouter } from './routes/dashboard.js';
-import { importRouter } from './routes/import.js';
-import { parentsRouter } from './routes/parents.js';
-import { studentsRouter } from './routes/students.js';
-import { teachersRouter } from './routes/teachers.js';
-import  KobiRouter  from './routes/kobi.js';
+import { adminRouter } from './routes/admin.routes.js';
+import { authRouter } from './routes/auth.routes.js';
+import { parentRouter } from './routes/parent.routes.js';
+import { studentRouter } from './routes/student.routes.js';
+import { teacherRouter } from './routes/teacher.routes.js';
+import { uploadRouter } from './routes/upload.routes.js';
+import KobiRouter from './routes/kobi.js';
 import bunnyRouter from './routes/bunny.js';
 
 const logger = pino({ level: env.LOG_LEVEL });
@@ -106,13 +104,11 @@ app.get('/_diag', (_request, response) => {
 });
 
 app.use('/api/v1/auth', authRouter);
-app.use('/api/v1/attendance', attendanceRouter);
-app.use('/api/v1/batches', batchesRouter);
-app.use('/api/v1/dashboard', dashboardRouter);
-app.use('/api/v1', importRouter);
-app.use('/api/v1/parents', parentsRouter);
-app.use('/api/v1/students', studentsRouter);
-app.use('/api/v1/teachers', teachersRouter);
+app.use('/api/v1/admin', adminRouter);
+app.use('/api/v1/teacher', teacherRouter);
+app.use('/api/v1/student', studentRouter);
+app.use('/api/v1/parent', parentRouter);
+app.use('/api/v1/uploads', uploadRouter);
 app.use('/kobi', KobiRouter);
 app.use('/api/v1/bunny', bunnyRouter);
 

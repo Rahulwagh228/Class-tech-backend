@@ -84,7 +84,6 @@ export const checkTeacherUsername = async (req: Request, res: Response): Promise
   }
 };
 
-// =============================================================================
 // POST /api/v1/teachers/create
 //
 // Add a single teacher via the admin "Add Teacher" form.
