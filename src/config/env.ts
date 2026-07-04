@@ -45,8 +45,8 @@ const envSchema = z.object({
   // with SELECT-only grants). Used by src/lib/chatbot/dbExecutioner.ts.
   // ---------------------------------------------------------------------------
   BUNNY_BOT_DB_USER: z.string().min(1).optional(),
-  BUNNY_BOT_SECRET: z.string().min(1).optional()
-  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
+  BUNNY_BOT_SECRET: z.string().min(1).optional(),
+  // SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
 
   // ---------------------------------------------------------------------------
   // Cloudinary — used by /api/v1/uploads/cloudinary-signature to hand short-lived
