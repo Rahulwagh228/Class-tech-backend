@@ -48,14 +48,14 @@ const { Pool } = pg;
 // SSL is required by Supabase. We disable cert verification because Supabase's
 // poolers use a non-public CA; the connection itself is still encrypted.
 // =============================================================================
-if (!env.DATABASE_URL) {
+const supabaseDbUrl: string = env.SUPABASE_DB_URL ?? env.DATABASE_URL ?? '';
+
+if (!supabaseDbUrl) {
   throw new Error(
-    'DATABASE_URL is not set. Get the URI from Supabase Dashboard -> ' +
-      'Project Settings -> Database -> Connection string and add it to .env.'
+    'No Postgres connection string is configured. Set SUPABASE_DB_URL ' +
+      '(preferred for Vercel) or DATABASE_URL in the environment.'
   );
 }
-
-const supabaseDbUrl: string = env.DATABASE_URL;
 
 const pool = new Pool({
   connectionString: supabaseDbUrl,
@@ -82,7 +82,7 @@ function maskUrl(url: string): string {
     if (u.password) u.password = '***';
     return u.toString();
   } catch {
-    return '<invalid SUPABASE_DB_URL>';
+    return '<invalid Postgres connection string>';
   }
 }
 
