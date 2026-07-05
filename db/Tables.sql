@@ -19,6 +19,14 @@ CREATE TYPE user_role AS ENUM (
   'parent'
 );
 
+-- updated_at trigger function used by tables with timestamp maintenance
+CREATE OR REPLACE FUNCTION set_updated_at() RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at := NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 -- 3.2 users  (admin / teacher / student / parent)
 CREATE TABLE users (
   id                              UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -44,6 +52,28 @@ CREATE UNIQUE INDEX users_email_unique ON users (LOWER(email));
 ALTER TABLE users
 
 ADD CONSTRAINT users_username_unique UNIQUE (username);
+-- 3.3 superadmins  (global login-only account, not tied to a tenant)
+CREATE TABLE superadmins (
+  id              UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+  email           TEXT        NOT NULL UNIQUE,
+  password_hash   VARCHAR(255)  NOT NULL,
+  created_at      TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  updated_at      TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  CONSTRAINT superadmins_email_format CHECK (POSITION('@' IN email) > 1)
+);
+
+CREATE TRIGGER superadmins_set_updated_at BEFORE UPDATE ON superadmins
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+ALTER TABLE superadmins
+ADD COLUMN name VARCHAR(100);
+
+ALTER TABLE superadmins
+ADD COLUMN username VARCHAR(50) UNIQUE;
+
+
+ALTER TABLE superadmins
+ADD CONSTRAINT superadmins_username_unique UNIQUE (username);
 -- 3.3 email_otps  (one-time codes for email verification)
 CREATE TABLE email_otps (
   id           UUID         PRIMARY KEY DEFAULT gen_random_uuid(),

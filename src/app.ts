@@ -10,6 +10,7 @@ import { authRouter } from './routes/auth.routes.js';
 import { parentRouter } from './routes/parent.routes.js';
 import { studentRouter } from './routes/student.routes.js';
 import { teacherRouter } from './routes/teacher.routes.js';
+import { superadminRouter } from './routes/superadmin.routes.js';
 import { uploadRouter } from './routes/upload.routes.js';
 import KobiRouter from './routes/kobi.js';
 import bunnyRouter from './routes/bunny.js';
@@ -104,6 +105,7 @@ app.get('/_diag', (_request, response) => {
 });
 
 app.use('/api/v1/auth', authRouter);
+app.use('/api/v1/superadmin', superadminRouter);
 app.use('/api/v1/admin', adminRouter);
 app.use('/api/v1/teacher', teacherRouter);
 app.use('/api/v1/student', studentRouter);

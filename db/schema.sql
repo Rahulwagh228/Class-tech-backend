@@ -121,7 +121,20 @@ CREATE TRIGGER users_set_updated_at BEFORE UPDATE ON users
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 
--- 3.3 parent_student_links  (parents <-> students, many-to-many)
+-- 3.3 superadmins  (global login-only account, not tied to a tenant)
+CREATE TABLE superadmins (
+  id              UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+  email           CITEXT        NOT NULL UNIQUE,
+  password_hash   VARCHAR(255)  NOT NULL,
+  created_at      TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  updated_at      TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  CONSTRAINT superadmins_email_format CHECK (POSITION('@' IN email) > 1)
+);
+CREATE TRIGGER superadmins_set_updated_at BEFORE UPDATE ON superadmins
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+
+-- 3.4 parent_student_links  (parents <-> students, many-to-many)
 CREATE TABLE parent_student_links (
   id            UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
   parent_id     UUID         NOT NULL REFERENCES users(id) ON DELETE CASCADE,
