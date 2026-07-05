@@ -76,6 +76,10 @@ pool
   .then(() => console.log('[pg] connected to', maskUrl(supabaseDbUrl)))
   .catch((err) => console.error('[pg] failed to connect:', err.message));
 
+export function getDbConnectionString(): string {
+  return maskUrl(supabaseDbUrl);
+}
+
 function maskUrl(url: string): string {
   try {
     const u = new URL(url);

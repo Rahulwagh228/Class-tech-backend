@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 import jwt, { type SignOptions } from 'jsonwebtoken';
 import crypto from 'node:crypto';
 import { Resend } from 'resend';
-import pool from '../config/connectpsql.js';
+import pool, { getDbConnectionString } from '../config/connectpsql.js';
 import { env } from '../config/env.js';
 import type {
   JwtPayload,
@@ -214,6 +214,7 @@ async function performLogin(
   expectedRole: UserRole | null
 ): Promise<void> {
   try {
+    console.log('[auth] db connection =', getDbConnectionString());
     const { password } = req.body ?? {};
     const email = normalizeEmail(req.body?.email);
     const bodyRole: unknown = req.body?.role;

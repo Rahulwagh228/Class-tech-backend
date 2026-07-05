@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import pool from '../../../config/connectpsql.js';
+import pool, { getDbConnectionString } from '../../../config/connectpsql.js';
 
 interface StudentMarkRow {
   exam_id: string;
@@ -35,6 +35,7 @@ export const studentExamMarks = async (req: Request, res: Response): Promise<voi
     res.status(401).json({ msg: 'Authentication required' });
     return;
   }
+  console.log('[student/exams/me] db connection =', getDbConnectionString());
   console.log("studentExamMarks got hit")
   const studentId = req.params.studentId;
   if (!studentId) {
