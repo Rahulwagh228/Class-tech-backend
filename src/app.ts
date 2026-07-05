@@ -12,6 +12,7 @@ import { studentRouter } from './routes/student.routes.js';
 import { teacherRouter } from './routes/teacher.routes.js';
 import { uploadRouter } from './routes/upload.routes.js';
 import KobiRouter from './routes/kobi.js';
+import bunnyRouter from './routes/bunny.js';
 
 const logger = pino({ level: env.LOG_LEVEL });
 
@@ -109,6 +110,7 @@ app.use('/api/v1/student', studentRouter);
 app.use('/api/v1/parent', parentRouter);
 app.use('/api/v1/uploads', uploadRouter);
 app.use('/kobi', KobiRouter);
+app.use('/api/v1/bunny', bunnyRouter);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
