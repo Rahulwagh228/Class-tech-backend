@@ -8,6 +8,8 @@ import {
   sendEmailOtp,
   verifyEmailOtp
 } from '../controllers/auth.js';
+import { forgotPassword } from '../controllers/auth/forgotPassword.js';
+import { resetPassword } from '../controllers/auth/resetPassword.js';
 import { studentLogin } from '../controllers/students/auth.js';
 import { teacherLogin } from '../controllers/teachers/auth.js';
 import { requireAuth } from '../middleware/auth.js';
@@ -24,6 +26,10 @@ authRouter.post('/parent/login', loginAsParent);
 // ── Email verification (public) ─────────────────────────────────────────────
 authRouter.post('/send-otp', sendEmailOtp);
 authRouter.post('/verify-otp', verifyEmailOtp);
+
+// ── Forgot / reset password (student, teacher, parent only) ─────────────────
+authRouter.post('/forgot-password', forgotPassword);
+authRouter.post('/reset-password', resetPassword);
 
 // ── Session (protected) ─────────────────────────────────────────────────────
 authRouter.get('/me', requireAuth, me);
