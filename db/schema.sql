@@ -56,6 +56,10 @@ DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'payment_status') THEN
     CREATE TYPE payment_status AS ENUM ('pending', 'succeeded', 'failed', 'refunded');
   END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'tution_plan') THEN
+    CREATE TYPE tution_plan AS ENUM ('trial', 'paid_p1', 'paid_p2', 'paid_p3');
+  END IF;
 END $$;
 
 
@@ -79,8 +83,10 @@ CREATE TABLE Tutions (
   id          UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
   name        VARCHAR(120) NOT NULL,
   slug        VARCHAR(60)  NOT NULL UNIQUE,        -- used in URLs / subdomains
+  plan        tution_plan  NOT NULL DEFAULT 'trial',
   timezone    VARCHAR(64)  NOT NULL DEFAULT 'UTC',
   logo_url    VARCHAR(2048),
+  created_by  UUID,
   created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
   updated_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
   CONSTRAINT tutions_slug_format CHECK (slug ~ '^[a-z0-9-]{3,60}$')
@@ -132,6 +138,10 @@ CREATE TABLE superadmins (
 );
 CREATE TRIGGER superadmins_set_updated_at BEFORE UPDATE ON superadmins
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+ALTER TABLE Tutions
+  ADD CONSTRAINT tutions_created_by_fkey
+  FOREIGN KEY (created_by) REFERENCES superadmins(id) ON DELETE SET NULL;
 
 
 -- 3.4 parent_student_links  (parents <-> students, many-to-many)

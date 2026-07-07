@@ -12,6 +12,19 @@ CREATE TABLE Tutions (
 );
 
 
+ALTER TABLE Tutions
+ADD CONSTRAINT tutions_created_by_fkey
+FOREIGN KEY (created_by) REFERENCES superadmins(id) ON DELETE SET NULL;
+
+ALTER TABLE Tutions
+ADD COLUMN created_by UUID,
+ADD COLUMN plan VARCHAR(20) NOT NULL DEFAULT 'trial';
+
+ALTER TABLE Tutions
+ADD CONSTRAINT tutions_plan_check
+CHECK (plan IN ('trial', 'paid_p1', 'paid_p2', 'paid_p3'));
+
+
 CREATE TYPE user_role AS ENUM (
   'admin',
   'teacher',
