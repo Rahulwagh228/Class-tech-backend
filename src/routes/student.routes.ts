@@ -4,6 +4,7 @@ import { studentBatches } from '../controllers/attendance/studentBatches.js';
 import { studentHeatmap } from '../controllers/attendance/studentHeatmap.js';
 import { studentAttendanceHistory } from '../controllers/attendance/studentHistory.js';
 import { studentExamMarks } from '../controllers/exams/marks/studentMarks.js';
+import { studentPendingFees } from '../controllers/fees/studentPending.js';
 import { studentDetails } from '../controllers/students/details.js';
 import { updateOwnProfile } from '../controllers/students/update.js';
 import { verifyEmailEdit } from '../controllers/students/updateEmail.js';
@@ -45,6 +46,7 @@ studentRouter.get(
   studentBatchDetail
 );
 studentRouter.get('/exams/me', requireRole('student'), fillSelfStudentId, studentExamMarks);
+studentRouter.get('/fees/me/pending', requireRole('student'), studentPendingFees);
 
 // ── /:studentId — admin / student / parent view, gated by requireStudentAccess
 studentRouter.get(

@@ -369,3 +369,75 @@ CREATE INDEX exam_marks_tution_idx     ON exam_marks (tution_id);
 CREATE INDEX exam_marks_subject_idx    ON exam_marks (exam_subject_id);
 
 
+
+
+-- =============================================================================
+-- FEES MANAGEMENT
+--   fees         - amount owed by a student (one row per fee item / installment)
+--   fee_payments - money received against a fee (many-to-one with fees)
+--
+-- Amounts stored as BIGINT cents to avoid float. Status is derived from
+-- paid_amount vs amount, but persisted on the row for fast listing/filtering.
+-- =============================================================================
+
+-- fee status: pending (nothing paid), partial (some paid), paid (fully paid),
+--             cancelled (admin voided the fee)
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'fee_status') THEN
+    CREATE TYPE fee_status AS ENUM ('pending', 'partial', 'paid', 'cancelled');
+  END IF;
+END $$;
+
+
+-- -----------------------------------------------------------------------------
+-- fees
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS fees (
+  id             UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+  tution_id      UUID          NOT NULL REFERENCES tutions(id) ON DELETE CASCADE,
+  student_id     UUID          NOT NULL REFERENCES users(id)   ON DELETE CASCADE,
+
+  title          VARCHAR(150)  NOT NULL,
+  description    TEXT,
+
+  amount_cents   BIGINT        NOT NULL CHECK (amount_cents > 0),
+  paid_cents     BIGINT        NOT NULL DEFAULT 0 CHECK (paid_cents >= 0),
+  currency       CHAR(3)       NOT NULL DEFAULT 'INR',
+
+  due_date       DATE,
+  status         fee_status    NOT NULL DEFAULT 'pending',
+
+  created_by     UUID          NOT NULL REFERENCES users(id),
+  created_at     TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  updated_at     TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+
+  CONSTRAINT fees_paid_not_over_amount CHECK (paid_cents <= amount_cents)
+);
+CREATE INDEX IF NOT EXISTS fees_tution_status_idx   ON fees (tution_id, status);
+CREATE INDEX IF NOT EXISTS fees_student_idx         ON fees (student_id);
+CREATE INDEX IF NOT EXISTS fees_tution_due_idx      ON fees (tution_id, due_date);
+
+CREATE TRIGGER fees_set_updated_at BEFORE UPDATE ON fees
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+
+-- -----------------------------------------------------------------------------
+-- fee_payments
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS fee_payments (
+  id             UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+  tution_id      UUID          NOT NULL REFERENCES tutions(id) ON DELETE CASCADE,
+  fee_id         UUID          NOT NULL REFERENCES fees(id)    ON DELETE CASCADE,
+
+  amount_cents   BIGINT        NOT NULL CHECK (amount_cents > 0),
+  method         VARCHAR(30)   NOT NULL DEFAULT 'cash',        -- cash | upi | card | bank_transfer | cheque | other
+  reference      VARCHAR(120),                                  -- txn id, cheque no, etc.
+  notes          TEXT,
+
+  paid_at        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  recorded_by    UUID          NOT NULL REFERENCES users(id),
+
+  created_at     TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS fee_payments_fee_idx     ON fee_payments (fee_id);
+CREATE INDEX IF NOT EXISTS fee_payments_tution_idx  ON fee_payments (tution_id);
